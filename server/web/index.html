@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garage control</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --card: #ffffff; --fg: #1c1c1a; --muted: #6b6b66; --line: #deddd6;
+    --accent: #2f6fdf; --on-accent: #ffffff; --on: #1f9d55; --off: #8a8a84; --warn: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --card: #1f1f1d; --fg: #ecebe6; --muted: #9a9993; --line: #34332f;
+            --accent: #6d9bff; --on-accent: #0b1a33; --on: #3ccf7f; --off: #77766f; --warn: #fb923c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 440px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 16px; width: 100%;
+           cursor: pointer; color: var(--on-accent); background: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .state { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); }
+  .dot.on { background: var(--on); }
+  #msg { margin: -4px 0; min-height: 1.45em; color: var(--muted); font-size: 14px; text-align: center; }
+  #msg.err { color: var(--warn); }
+  .qr { display: block; width: 100%; max-width: 280px; margin: 0 auto 12px; border-radius: 8px;
+        background: #fff; padding: 8px; image-rendering: pixelated; }
+  .hint { font-size: 14px; color: var(--muted); margin: 0; }
+  code { font-size: 13px; overflow-wrap: anywhere; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Garage control</h1>
+    <p class="hint">Raspberry Pi · GPIO 14 garage · GPIO 15 relay</p>
+  </header>
+
+  <section>
+    <h2>Garage door</h2>
+    <div class="state"><span class="dot" id="gdot"></span><span id="gstate">Idle</span></div>
+    <button id="pulse">Open / close</button>
+  </section>
+
+  <section>
+    <h2>Relay</h2>
+    <div class="state"><span class="dot" id="rdot"></span><span id="rstate">…</span></div>
+    <div class="row">
+      <button id="on">On</button>
+      <button id="off" class="secondary">Off</button>
+    </div>
+  </section>
+
+  <p id="msg" role="status"></p>
+
+  <section>
+    <h2>Pair Android app</h2>
+    <img class="qr" src="/api/qr.png" alt="Pairing QR code" width="280" height="280">
+    <p class="hint">Open the app and tap <b>Scan pairing QR</b>. The code contains the secret key, so keep this page private.</p>
+    <details>
+      <summary>Pairing details</summary>
+      <p class="hint">Bluetooth address: <code id="addr">…</code></p>
+    </details>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const msg = (text, err) => { $("msg").textContent = text; $("msg").className = err ? "err" : ""; };
+
+function render(s) {
+  $("rdot").classList.toggle("on", s.relay);
+  $("rstate").textContent = s.relay ? "On" : "Off";
+  $("gdot").classList.toggle("on", s.garageBusy);
+  $("gstate").textContent = s.garageBusy ? "Pulsing…" : "Idle";
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/state");
+    if (r.ok) render(await r.json());
+  } catch (_) { /* server unreachable; keep last state */ }
+}
+
+async function post(url, body, okText) {
+  const buttons = document.querySelectorAll("button");
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    msg(okText);
+  } catch (e) {
+    msg("Failed: " + e.message, true);
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+    refresh();
+  }
+}
+
+$("pulse").onclick = () => post("/api/garage/pulse", null, "Garage pulsed");
+$("on").onclick = () => post("/api/relay", { on: true }, "Relay on");
+$("off").onclick = () => post("/api/relay", { on: false }, "Relay off");
+
+fetch("/api/pairing").then((r) => r.json()).then((p) => {
+  $("addr").textContent = p.addr || "Bluetooth not running";
+});
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

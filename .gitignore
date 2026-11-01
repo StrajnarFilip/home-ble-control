@@ -1,0 +1,16 @@
+# Secret: never commit the AES key
+key.txt
+*.key
+
+# Go
+/server/garage-ctl
+/server/garage-ctl-*
+
+# Android
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/.idea/
+*.apk
