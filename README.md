@@ -186,6 +186,8 @@ Open the app, tap **Scan pairing QR** and scan the code on the web UI. It needs 
 
 The **Garage** home-screen widget has the same garage door button plus a relay toggle.
 
+The app is in English and Slovenian. It follows the phone's language; on Android 13+ you can also choose one for this app alone in *Settings › Apps › Garage › Language*.
+
 To make every tap instant, a foreground service keeps the connection open whenever the garage is in range. When it isn't, Android reconnects in the background within a second or two of the garage coming back into range. The service starts again after a reboot or an app update. Android lists it under active apps. Its silent "Connected to the garage" notification only appears if you allow the app's notifications. The service keeps a short connection interval, so it uses some battery, about as much as a smartwatch link. Tap **Forget** to stop it.
 
 Relay changes made by anyone (another phone, the web UI, the REST API) show up in the app and the widget straight away.

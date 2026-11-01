@@ -26,14 +26,16 @@ class GarageWidget : AppWidgetProvider() {
 
         private fun render(context: Context, status: GarageStatus, manager: AppWidgetManager, ids: IntArray) {
             val views = RemoteViews(context.packageName, R.layout.widget_garage)
-            views.setTextViewText(R.id.widget_status, statusText(status, hasBlePermissions(context)))
+            views.setTextViewText(R.id.widget_status, statusText(context, status))
             views.setTextViewText(
                 R.id.widget_relay_state,
-                when (status.relayOn) {
-                    true -> "On"
-                    false -> "Off"
-                    null -> "–"
-                },
+                context.getString(
+                    when (status.relayOn) {
+                        true -> R.string.relay_on
+                        false -> R.string.relay_off
+                        null -> R.string.widget_relay_unknown
+                    },
+                ),
             )
             val on = status.relayOn == true
             views.setInt(R.id.widget_relay, "setBackgroundResource", if (on) R.drawable.widget_button_on else R.drawable.widget_button)
@@ -62,13 +64,13 @@ class GarageWidget : AppWidgetProvider() {
             manager.updateAppWidget(ids, views)
         }
 
-        private fun statusText(s: GarageStatus, hasPermissions: Boolean): String = when {
-            !s.paired -> "Open the app to pair"
-            !hasPermissions -> "Open the app to allow Bluetooth"
-            s.busy && s.message == null -> "Connecting…"
+        private fun statusText(context: Context, s: GarageStatus): String = when {
+            !s.paired -> context.getString(R.string.widget_open_to_pair)
+            !hasBlePermissions(context) -> context.getString(R.string.widget_open_for_permission)
+            s.busy && s.message == null -> context.getString(R.string.connecting)
             s.message != null -> s.message
-            s.connected -> "Ready"
-            else -> "Not connected"
+            s.connected -> context.getString(R.string.widget_ready)
+            else -> context.getString(R.string.not_connected)
         }
 
         // A foreground-service intent: a widget tap may start the service even from the background.

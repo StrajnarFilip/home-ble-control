@@ -23,6 +23,8 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        tools:targetApi="33"
         android:supportsRtl="true"
         android:theme="@style/Theme.Garage">
 
@@ -52,7 +54,7 @@
         <receiver
             android:name=".GarageWidget"
             android:exported="true"
-            android:label="Garage">
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

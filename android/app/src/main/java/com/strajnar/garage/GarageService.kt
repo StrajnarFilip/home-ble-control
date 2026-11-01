@@ -71,8 +71,8 @@ class GarageService : Service() {
     private fun notification(connected: Boolean): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Garage connection", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Keeps the garage connected so the app and widget respond instantly"
+            NotificationChannel(CHANNEL, getString(R.string.channel_name), NotificationManager.IMPORTANCE_MIN).apply {
+                description = getString(R.string.channel_description)
                 setShowBadge(false)
             },
         )
@@ -81,7 +81,7 @@ class GarageService : Service() {
         )
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(if (connected) "Connected to the garage" else "Waiting for the garage")
+            .setContentTitle(getString(if (connected) R.string.notification_connected else R.string.notification_waiting))
             .setContentIntent(open)
             .setOngoing(true)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)

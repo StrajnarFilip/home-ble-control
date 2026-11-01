@@ -6,6 +6,7 @@ import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -88,14 +89,17 @@ class Garage(private val app: Application) {
     fun onScanned(text: String): Boolean {
         val p = try {
             Pairing.parse(text)
+        } catch (e: PairingException) {
+            showError(app.getString(e.reason))
+            return false
         } catch (e: IllegalArgumentException) {
-            showError(e.message ?: "Invalid pairing code")
+            showError(app.getString(R.string.pairing_invalid))
             return false
         }
         p.save(app)
         scope.launch { ble.reset() }
         _pairing.value = p
-        show(Feedback(message = "Paired with ${p.name}"))
+        show(Feedback(message = app.getString(R.string.paired_with, p.name)))
         return true
     }
 
@@ -106,29 +110,29 @@ class Garage(private val app: Application) {
         show(Feedback())
     }
 
-    fun pulseGarage() = run("Garage door triggered") { ble.command(it, Protocol.CMD_PULSE_GARAGE, 0) }
+    fun pulseGarage() = run(R.string.garage_triggered) { ble.command(it, Protocol.CMD_PULSE_GARAGE, 0) }
 
     fun setRelay(on: Boolean) =
-        run(if (on) "Relay switched on" else "Relay switched off") { ble.command(it, Protocol.CMD_SET_RELAY, if (on) 1 else 0) }
+        run(if (on) R.string.relay_switched_on else R.string.relay_switched_off) { ble.command(it, Protocol.CMD_SET_RELAY, if (on) 1 else 0) }
 
     fun refresh() = run(null) { ble.readState(it) }
 
     fun showError(message: String) = show(Feedback(message = message, isError = true))
 
-    private fun run(okMessage: String?, block: suspend (Pairing) -> Unit) {
+    private fun run(@StringRes okMessage: Int?, block: suspend (Pairing) -> Unit) {
         val p = _pairing.value ?: return
         if (feedback.value.busy) return
         clearMessage?.cancel()
         // The connection row says "Connecting…" by itself, so a plain refresh shows no message.
-        feedback.value = Feedback(busy = true, message = okMessage?.let { "Sending…" })
+        feedback.value = Feedback(busy = true, message = okMessage?.let { app.getString(R.string.sending) })
         scope.launch {
             val result = try {
                 block(p)
-                Feedback(message = okMessage)
+                Feedback(message = okMessage?.let(app::getString))
             } catch (e: BleException) {
                 Feedback(message = e.message, isError = true)
             } catch (e: SecurityException) {
-                Feedback(message = "Bluetooth permission missing", isError = true)
+                Feedback(message = app.getString(R.string.permission_missing), isError = true)
             }
             show(result)
         }

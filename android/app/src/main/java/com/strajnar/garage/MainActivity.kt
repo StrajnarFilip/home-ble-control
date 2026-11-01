@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
@@ -76,6 +77,8 @@ class MainActivity : ComponentActivity() {
 private fun GarageScreen(vm: Garage) {
     val ui by vm.status.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val permissionNeeded = stringResource(R.string.permission_needed)
+    val scanPrompt = stringResource(R.string.scan_prompt)
 
     var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -85,7 +88,7 @@ private fun GarageScreen(vm: Garage) {
             vm.startService(context)
             action?.invoke()
         } else {
-            vm.showError("Bluetooth permission is needed to reach the garage")
+            vm.showError(permissionNeeded)
         }
     }
     fun withBle(action: () -> Unit) {
@@ -109,7 +112,7 @@ private fun GarageScreen(vm: Garage) {
     fun scanQr() = scanLauncher.launch(
         ScanOptions()
             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Scan the QR code on the garage web page")
+            .setPrompt(scanPrompt)
             .setBeepEnabled(false)
             .setOrientationLocked(false),
     )
@@ -119,17 +122,17 @@ private fun GarageScreen(vm: Garage) {
             Modifier.widthIn(max = 480.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Garage", style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
 
             if (!ui.paired) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Not paired yet", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.not_paired_title), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Open the garage controller's web page (http://<pi-address>:8080) and scan its QR code.",
+                            stringResource(R.string.not_paired_body),
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Button(onClick = ::scanQr, modifier = Modifier.fillMaxWidth()) { Text("Scan pairing QR") }
+                        Button(onClick = ::scanQr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_pairing_qr)) }
                     }
                 }
                 StatusLine(ui)
@@ -144,19 +147,21 @@ private fun GarageScreen(vm: Garage) {
                 enabled = !ui.busy,
                 modifier = Modifier.fillMaxWidth().height(112.dp),
             ) {
-                Text("Garage door", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.garage_door), style = MaterialTheme.typography.headlineSmall)
             }
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Relay", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.relay), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         Text(
-                            when (ui.relayOn) {
-                                true -> "On"
-                                false -> "Off"
-                                null -> "Unknown"
-                            },
+                            stringResource(
+                                when (ui.relayOn) {
+                                    true -> R.string.relay_on
+                                    false -> R.string.relay_off
+                                    null -> R.string.relay_unknown
+                                },
+                            ),
                             style = MaterialTheme.typography.titleMedium,
                             color = if (ui.relayOn == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -166,12 +171,12 @@ private fun GarageScreen(vm: Garage) {
                             onClick = { withBle { vm.setRelay(true) } },
                             enabled = !ui.busy,
                             modifier = Modifier.weight(1f).height(56.dp),
-                        ) { Text("On") }
+                        ) { Text(stringResource(R.string.turn_on)) }
                         OutlinedButton(
                             onClick = { withBle { vm.setRelay(false) } },
                             enabled = !ui.busy,
                             modifier = Modifier.weight(1f).height(56.dp),
-                        ) { Text("Off") }
+                        ) { Text(stringResource(R.string.turn_off)) }
                     }
                 }
             }
@@ -179,9 +184,9 @@ private fun GarageScreen(vm: Garage) {
             StatusLine(ui)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { withBle(vm::refresh) }, enabled = !ui.busy) { Text("Refresh") }
-                TextButton(onClick = ::scanQr) { Text("Re-pair") }
-                TextButton(onClick = vm::forget) { Text("Forget") }
+                TextButton(onClick = { withBle(vm::refresh) }, enabled = !ui.busy) { Text(stringResource(R.string.refresh)) }
+                TextButton(onClick = ::scanQr) { Text(stringResource(R.string.re_pair)) }
+                TextButton(onClick = vm::forget) { Text(stringResource(R.string.forget)) }
             }
         }
     }
@@ -195,11 +200,13 @@ private fun ConnectionRow(ui: GarageStatus) {
                 .background(if (ui.connected) Color(0xFF2E9D5B) else MaterialTheme.colorScheme.outline),
         )
         Text(
-            when {
-                ui.connected -> "Connected over Bluetooth"
-                ui.busy -> "Connecting…"
-                else -> "Not connected"
-            },
+            stringResource(
+                when {
+                    ui.connected -> R.string.connected_over_bluetooth
+                    ui.busy -> R.string.connecting
+                    else -> R.string.not_connected
+                },
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

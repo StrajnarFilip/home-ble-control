@@ -2,9 +2,13 @@ package com.strajnar.garage
 
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.core.content.edit
 import org.json.JSONException
 import org.json.JSONObject
+
+/** A pairing code that can't be used; [reason] is the message to show. */
+class PairingException(@StringRes val reason: Int) : IllegalArgumentException()
 
 /** What the server's QR code carries: {"v":1,"key":"<hex>","addr":"AA:BB:..","name":"Garage"}. */
 class Pairing(val key: ByteArray, val address: String?, val name: String) {
@@ -15,12 +19,11 @@ class Pairing(val key: ByteArray, val address: String?, val name: String) {
             val o = try {
                 JSONObject(qr)
             } catch (e: JSONException) {
-                throw IllegalArgumentException("Not a garage pairing code")
+                throw PairingException(R.string.pairing_not_garage)
             }
-            require(o.optInt("v") == 1) { "Unsupported pairing code version" }
-            val key = hexToBytes(o.optString("key"))
-                ?: throw IllegalArgumentException("Pairing code has an invalid key")
-            require(key.size == 16 || key.size == 24 || key.size == 32) { "Pairing code has an invalid key length" }
+            if (o.optInt("v") != 1) throw PairingException(R.string.pairing_bad_version)
+            val key = hexToBytes(o.optString("key")) ?: throw PairingException(R.string.pairing_bad_key)
+            if (key.size != 16 && key.size != 24 && key.size != 32) throw PairingException(R.string.pairing_bad_key_length)
             val addr = o.optString("addr").uppercase().takeIf { BluetoothAdapter.checkBluetoothAddress(it) }
             return Pairing(key, addr, o.optString("name").ifBlank { "Garage" })
         }

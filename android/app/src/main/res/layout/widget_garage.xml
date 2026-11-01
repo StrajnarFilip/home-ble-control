@@ -20,13 +20,18 @@
         android:orientation="vertical"
         android:paddingHorizontal="10dp">
 
+        <!-- Shrinks to fit longer translations (e.g. "Garažna vrata"). -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:autoSizeMaxTextSize="17sp"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeStepGranularity="1sp"
+            android:autoSizeTextType="uniform"
+            android:gravity="center"
             android:maxLines="1"
-            android:text="Garage door"
+            android:text="@string/garage_door"
             android:textColor="@color/widget_text"
-            android:textSize="17sp"
             android:textStyle="bold" />
 
         <TextView
@@ -54,18 +59,23 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxLines="1"
-            android:text="Relay"
+            android:text="@string/relay"
             android:textColor="@color/widget_text_dim"
             android:textSize="12sp" />
 
         <TextView
             android:id="@+id/widget_relay_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:autoSizeMaxTextSize="17sp"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeStepGranularity="1sp"
+            android:autoSizeTextType="uniform"
+            android:gravity="center"
             android:maxLines="1"
-            android:text="–"
+            android:paddingHorizontal="4dp"
+            android:text="@string/widget_relay_unknown"
             android:textColor="@color/widget_text"
-            android:textSize="17sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

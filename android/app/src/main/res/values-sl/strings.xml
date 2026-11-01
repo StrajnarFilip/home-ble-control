@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">Garaža</string>
+    <string name="widget_description">Garažna vrata in rele na en dotik</string>
+
+    <!-- Main screen -->
+    <string name="not_paired_title">Še ni seznanjeno</string>
+    <string name="not_paired_body">Odprite spletno stran krmilnika garaže (http://&lt;naslov-pi&gt;:8080) in skenirajte njeno kodo QR.</string>
+    <string name="scan_pairing_qr">Skeniraj kodo QR za seznanjanje</string>
+    <string name="scan_prompt">Skenirajte kodo QR na spletni strani garaže</string>
+    <string name="garage_door">Garažna vrata</string>
+    <string name="relay">Rele</string>
+    <string name="relay_on">Vklopljen</string>
+    <string name="relay_off">Izklopljen</string>
+    <string name="relay_unknown">Neznano</string>
+    <string name="turn_on">Vklopi</string>
+    <string name="turn_off">Izklopi</string>
+    <string name="refresh">Osveži</string>
+    <string name="re_pair">Ponovno seznani</string>
+    <string name="forget">Pozabi</string>
+    <string name="connected_over_bluetooth">Povezano prek Bluetootha</string>
+    <string name="connecting">Povezovanje …</string>
+    <string name="not_connected">Ni povezave</string>
+
+    <!-- Results -->
+    <string name="sending">Pošiljanje …</string>
+    <string name="garage_triggered">Garažna vrata sprožena</string>
+    <string name="relay_switched_on">Rele vklopljen</string>
+    <string name="relay_switched_off">Rele izklopljen</string>
+    <string name="paired_with">Seznanjeno z napravo %1$s</string>
+    <string name="permission_missing">Manjka dovoljenje za Bluetooth</string>
+    <string name="permission_needed">Za dostop do garaže je potrebno dovoljenje za Bluetooth</string>
+
+    <!-- Pairing code errors -->
+    <string name="pairing_invalid">Neveljavna koda za seznanjanje</string>
+    <string name="pairing_not_garage">To ni koda za seznanjanje z garažo</string>
+    <string name="pairing_bad_version">Nepodprta različica kode za seznanjanje</string>
+    <string name="pairing_bad_key">Koda za seznanjanje vsebuje neveljaven ključ</string>
+    <string name="pairing_bad_key_length">Ključ v kodi za seznanjanje ima neveljavno dolžino</string>
+
+    <!-- Background connection -->
+    <string name="channel_name">Povezava z garažo</string>
+    <string name="channel_description">Ohranja povezavo z garažo, da se aplikacija in pripomoček odzoveta takoj</string>
+    <string name="notification_connected">Povezano z garažo</string>
+    <string name="notification_waiting">Čakanje na garažo</string>
+
+    <!-- Widget -->
+    <string name="widget_open_to_pair">Za seznanjanje odprite aplikacijo</string>
+    <string name="widget_open_for_permission">Odprite aplikacijo in dovolite Bluetooth</string>
+    <string name="widget_ready">Pripravljeno</string>
+    <string name="widget_relay_unknown">–</string>
+
+    <!-- Bluetooth errors -->
+    <string name="err_lost_while_sending">Povezava se je med pošiljanjem prekinila; preverite, ali je ukaz uspel</string>
+    <string name="err_no_challenge">Od garaže ni bilo mogoče dobiti izziva (koda %1$d)</string>
+    <string name="err_read_state">Stanja releja ni bilo mogoče prebrati (koda %1$d)</string>
+    <string name="err_no_bluetooth">Ta telefon nima Bluetootha</string>
+    <string name="err_bluetooth_off">Bluetooth je izklopljen</string>
+    <string name="err_scan_failed">Iskanje prek Bluetootha ni uspelo (napaka %1$d)</string>
+    <string name="err_not_found">Garaže ni bilo mogoče najti. Je v dosegu in deluje?</string>
+    <string name="err_auth">Zavrnjeno: preverjanje pristnosti ni uspelo. Znova skenirajte kodo QR za seznanjanje.</string>
+    <string name="err_busy">Garažna vrata se že premikajo</string>
+    <string name="err_hardware">Krmilnik garaže je sporočil napako strojne opreme</string>
+    <string name="err_version">Različici aplikacije in strežnika se ne ujemata (koda %1$d)</string>
+    <string name="err_command">Ukaz ni uspel (koda %1$d)</string>
+    <string name="err_disconnected_status">Povezava z garažo je prekinjena (koda %1$d)</string>
+    <string name="err_refused">Bluetooth je zavrnil povezavo</string>
+    <string name="err_disconnected">Povezava je prekinjena</string>
+    <string name="err_discovery">Odkrivanje storitev ni uspelo (koda %1$d)</string>
+    <string name="err_not_garage">Ta naprava ni krmilnik garaže</string>
+    <string name="err_missing_characteristic">Storitvi garaže manjka %1$s</string>
+    <string name="err_bluetooth_busy">Bluetooth je bil zaseden</string>
+    <string name="err_no_response">Garaža se ni odzvala</string>
+    <string name="err_connect_timeout">Povezovanje z garažo je trajalo predolgo</string>
+</resources>
