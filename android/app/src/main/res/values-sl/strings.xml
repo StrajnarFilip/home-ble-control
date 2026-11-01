@@ -4,9 +4,12 @@
 
     <!-- Main screen -->
     <string name="not_paired_title">Še ni seznanjeno</string>
-    <string name="not_paired_body">Odprite spletno stran krmilnika garaže (http://&lt;naslov-pi&gt;:8080) in skenirajte njeno kodo QR.</string>
+    <string name="not_paired_body">Odprite spletno stran krmilnika garaže (http://&lt;naslov-pi&gt;:8080) in skenirajte njeno kodo QR ali prilepite ključ iz razdelka »Pairing details«.</string>
     <string name="scan_pairing_qr">Skeniraj kodo QR za seznanjanje</string>
     <string name="scan_prompt">Skenirajte kodo QR na spletni strani garaže</string>
+    <string name="pairing_key">Ključ</string>
+    <string name="pair_with_key">Seznani s ključem</string>
+    <string name="cancel">Prekliči</string>
     <string name="garage_door">Garažna vrata</string>
     <string name="relay">Rele</string>
     <string name="relay_on">Vklopljen</string>
@@ -48,6 +51,10 @@
     <string name="widget_open_for_permission">Odprite aplikacijo in dovolite Bluetooth</string>
     <string name="widget_ready">Pripravljeno</string>
     <string name="widget_relay_unknown">–</string>
+    <string name="tile_garage_description">Sprožite garažna vrata z enim dotikom</string>
+    <string name="tile_relay_description">Preklopite rele z enim dotikom</string>
+    <string name="tile_relay_preview">Rele\n–</string>
+    <string name="tile_open_app">Odpri aplikacijo</string>
 
     <!-- Bluetooth errors -->
     <string name="err_lost_while_sending">Povezava se je med pošiljanjem prekinila; preverite, ali je ukaz uspel</string>
@@ -57,7 +64,7 @@
     <string name="err_bluetooth_off">Bluetooth je izklopljen</string>
     <string name="err_scan_failed">Iskanje prek Bluetootha ni uspelo (napaka %1$d)</string>
     <string name="err_not_found">Garaže ni bilo mogoče najti. Je v dosegu in deluje?</string>
-    <string name="err_auth">Zavrnjeno: preverjanje pristnosti ni uspelo. Znova skenirajte kodo QR za seznanjanje.</string>
+    <string name="err_auth">Zavrnjeno: preverjanje pristnosti ni uspelo. Znova seznanite aplikacijo.</string>
     <string name="err_busy">Garažna vrata se že premikajo</string>
     <string name="err_hardware">Krmilnik garaže je sporočil napako strojne opreme</string>
     <string name="err_version">Različici aplikacije in strežnika se ne ujemata (koda %1$d)</string>

@@ -15,17 +15,26 @@ class Pairing(val key: ByteArray, val address: String?, val name: String) {
     companion object {
         private const val PREFS = "pairing"
 
-        fun parse(qr: String): Pairing {
+        /**
+         * Accepts the QR code's JSON or just the hex key (e.g. pasted from key.txt). Without an
+         * address, [GarageBle] finds the garage by scanning for its service.
+         */
+        fun parse(code: String): Pairing {
+            hexToBytes(code)?.let { return Pairing(checkKeyLength(it), null, "Garage") }
             val o = try {
-                JSONObject(qr)
+                JSONObject(code.trim())
             } catch (e: JSONException) {
                 throw PairingException(R.string.pairing_not_garage)
             }
             if (o.optInt("v") != 1) throw PairingException(R.string.pairing_bad_version)
             val key = hexToBytes(o.optString("key")) ?: throw PairingException(R.string.pairing_bad_key)
-            if (key.size != 16 && key.size != 24 && key.size != 32) throw PairingException(R.string.pairing_bad_key_length)
             val addr = o.optString("addr").uppercase().takeIf { BluetoothAdapter.checkBluetoothAddress(it) }
-            return Pairing(key, addr, o.optString("name").ifBlank { "Garage" })
+            return Pairing(checkKeyLength(key), addr, o.optString("name").ifBlank { "Garage" })
+        }
+
+        private fun checkKeyLength(key: ByteArray): ByteArray {
+            if (key.size != 16 && key.size != 24 && key.size != 32) throw PairingException(R.string.pairing_bad_key_length)
+            return key
         }
 
         // App-private storage; backup and device transfer are disabled in the manifest.
@@ -41,10 +50,10 @@ class Pairing(val key: ByteArray, val address: String?, val name: String) {
 
         private fun hexToBytes(s: String): ByteArray? {
             val t = s.trim()
-            if (t.isEmpty() || t.length % 2 != 0) return null
+            if (t.isEmpty()) return null
             return try {
-                ByteArray(t.length / 2) { t.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
-            } catch (e: NumberFormatException) {
+                t.hexToByteArray()
+            } catch (e: IllegalArgumentException) {
                 null
             }
         }

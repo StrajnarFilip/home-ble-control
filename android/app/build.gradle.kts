@@ -29,6 +29,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Pairing.parse calls BluetoothAdapter, which unit tests only have as a stub.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -43,4 +48,5 @@ dependencies {
     implementation(libs.zxing.android.embedded)
 
     testImplementation(libs.junit)
+    testImplementation(libs.json) // android.jar's org.json is a stub in unit tests.
 }

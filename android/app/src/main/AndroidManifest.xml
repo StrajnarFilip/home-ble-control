@@ -63,6 +63,30 @@
                 android:resource="@xml/garage_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".GarageTile"
+            android:exported="true"
+            android:label="@string/garage_door">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/garage_tile_info" />
+        </receiver>
+
+        <receiver
+            android:name=".RelayTile"
+            android:exported="true"
+            android:label="@string/relay">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/relay_tile_info" />
+        </receiver>
+
         <!-- Let the ZXing scanner follow the phone's orientation (default is landscape). -->
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"

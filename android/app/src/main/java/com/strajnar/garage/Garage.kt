@@ -22,7 +22,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** What the app screen and the widget show. */
+/** The two things a tile can control. */
+enum class Control { GARAGE, RELAY }
+
+/** What the app screen and the widgets show. */
 data class GarageStatus(
     val paired: Boolean,
     val connected: Boolean = false,
@@ -30,6 +33,8 @@ data class GarageStatus(
     val busy: Boolean = false,
     val message: String? = null,
     val isError: Boolean = false,
+    /** The control that [busy] and [message] are about, or null if they concern both. */
+    val about: Control? = null,
 )
 
 class GarageApp : Application() {
@@ -54,7 +59,12 @@ class Garage(private val app: Application) {
     private val _pairing = MutableStateFlow(Pairing.load(app))
     val pairing: StateFlow<Pairing?> = _pairing.asStateFlow()
 
-    private data class Feedback(val busy: Boolean = false, val message: String? = null, val isError: Boolean = false)
+    private data class Feedback(
+        val busy: Boolean = false,
+        val message: String? = null,
+        val isError: Boolean = false,
+        val about: Control? = null,
+    )
 
     private val feedback = MutableStateFlow(Feedback())
     private var clearMessage: Job? = null
@@ -68,6 +78,7 @@ class Garage(private val app: Application) {
                 busy = f.busy,
                 message = f.message,
                 isError = f.isError,
+                about = f.about,
             )
         }.stateIn(scope, SharingStarted.Eagerly, GarageStatus(paired = _pairing.value != null))
 
@@ -85,8 +96,8 @@ class Garage(private val app: Application) {
         }
     }
 
-    /** Returns true if the scanned text was a valid pairing code. */
-    fun onScanned(text: String): Boolean {
+    /** Pairs using a scanned QR code or a pasted key. Returns true if [text] was valid. */
+    fun onPairingCode(text: String): Boolean {
         val p = try {
             Pairing.parse(text)
         } catch (e: PairingException) {
@@ -110,29 +121,31 @@ class Garage(private val app: Application) {
         show(Feedback())
     }
 
-    fun pulseGarage() = run(R.string.garage_triggered) { ble.command(it, Protocol.CMD_PULSE_GARAGE, 0) }
+    fun pulseGarage() = run(R.string.garage_triggered, Control.GARAGE) { ble.command(it, Protocol.CMD_PULSE_GARAGE, 0) }
 
     fun setRelay(on: Boolean) =
-        run(if (on) R.string.relay_switched_on else R.string.relay_switched_off) { ble.command(it, Protocol.CMD_SET_RELAY, if (on) 1 else 0) }
+        run(if (on) R.string.relay_switched_on else R.string.relay_switched_off, Control.RELAY) {
+            ble.command(it, Protocol.CMD_SET_RELAY, if (on) 1 else 0)
+        }
 
-    fun refresh() = run(null) { ble.readState(it) }
+    fun refresh() = run(null, null) { ble.readState(it) }
 
     fun showError(message: String) = show(Feedback(message = message, isError = true))
 
-    private fun run(@StringRes okMessage: Int?, block: suspend (Pairing) -> Unit) {
+    private fun run(@StringRes okMessage: Int?, about: Control?, block: suspend (Pairing) -> Unit) {
         val p = _pairing.value ?: return
         if (feedback.value.busy) return
         clearMessage?.cancel()
         // The connection row says "Connecting…" by itself, so a plain refresh shows no message.
-        feedback.value = Feedback(busy = true, message = okMessage?.let { app.getString(R.string.sending) })
+        feedback.value = Feedback(busy = true, message = okMessage?.let { app.getString(R.string.sending) }, about = about)
         scope.launch {
             val result = try {
                 block(p)
-                Feedback(message = okMessage?.let(app::getString))
+                Feedback(message = okMessage?.let(app::getString), about = about)
             } catch (e: BleException) {
-                Feedback(message = e.message, isError = true)
+                Feedback(message = e.message, isError = true, about = about)
             } catch (e: SecurityException) {
-                Feedback(message = app.getString(R.string.permission_missing), isError = true)
+                Feedback(message = app.getString(R.string.permission_missing), isError = true, about = about)
             }
             show(result)
         }
@@ -145,7 +158,7 @@ class Garage(private val app: Application) {
         if (f.message != null) {
             clearMessage = scope.launch {
                 delay(MESSAGE_MS)
-                feedback.update { it.copy(message = null, isError = false) }
+                feedback.update { it.copy(message = null, isError = false, about = null) }
             }
         }
     }

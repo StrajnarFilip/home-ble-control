@@ -34,6 +34,7 @@
         background: #fff; padding: 8px; image-rendering: pixelated; }
   .hint { font-size: 14px; color: var(--muted); margin: 0; }
   code { font-size: 13px; overflow-wrap: anywhere; }
+  #key { user-select: all; }
   details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 </style>
 </head>
@@ -68,6 +69,7 @@
     <details>
       <summary>Pairing details</summary>
       <p class="hint">Bluetooth address: <code id="addr">…</code></p>
+      <p class="hint">Key, to paste into the app instead of scanning: <code id="key">…</code></p>
     </details>
   </section>
 </main>
@@ -115,6 +117,7 @@ $("off").onclick = () => post("/api/relay", { on: false }, "Relay off");
 
 fetch("/api/pairing").then((r) => r.json()).then((p) => {
   $("addr").textContent = p.addr || "Bluetooth not running";
+  $("key").textContent = p.key;
 });
 refresh();
 setInterval(refresh, 2000);

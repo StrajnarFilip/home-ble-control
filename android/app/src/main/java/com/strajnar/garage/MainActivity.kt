@@ -21,12 +21,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
@@ -100,14 +107,21 @@ private fun GarageScreen(vm: Garage) {
         }
     }
 
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        val text = result.contents ?: return@rememberLauncherForActivityResult
-        if (vm.onScanned(text)) {
-            withBle {
-                vm.startService(context) // Already running if Bluetooth was allowed before; harmless.
-                vm.refresh()
-            }
+    var rePairing by rememberSaveable { mutableStateOf(false) }
+
+    /** Returns true if [code] was a valid pairing code. */
+    fun pair(code: String): Boolean {
+        if (!vm.onPairingCode(code)) return false
+        rePairing = false
+        withBle {
+            vm.startService(context) // Already running if Bluetooth was allowed before; harmless.
+            vm.refresh()
         }
+        return true
+    }
+
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        pair(result.contents ?: return@rememberLauncherForActivityResult)
     }
     fun scanQr() = scanLauncher.launch(
         ScanOptions()
@@ -124,17 +138,13 @@ private fun GarageScreen(vm: Garage) {
         ) {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
 
-            if (!ui.paired) {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.not_paired_title), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            stringResource(R.string.not_paired_body),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(onClick = ::scanQr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_pairing_qr)) }
-                    }
-                }
+            if (!ui.paired || rePairing) {
+                PairingCard(
+                    title = stringResource(if (ui.paired) R.string.re_pair else R.string.not_paired_title),
+                    onScan = ::scanQr,
+                    onKey = ::pair,
+                    onCancel = if (ui.paired) ({ rePairing = false }) else null,
+                )
                 StatusLine(ui)
                 return@Column
             }
@@ -185,8 +195,48 @@ private fun GarageScreen(vm: Garage) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { withBle(vm::refresh) }, enabled = !ui.busy) { Text(stringResource(R.string.refresh)) }
-                TextButton(onClick = ::scanQr) { Text(stringResource(R.string.re_pair)) }
+                TextButton(onClick = { rePairing = true }) { Text(stringResource(R.string.re_pair)) }
                 TextButton(onClick = vm::forget) { Text(stringResource(R.string.forget)) }
+            }
+        }
+    }
+}
+
+/** Pairs by scanning the QR code or by pasting the key into a masked field. */
+@Composable
+private fun PairingCard(title: String, onScan: () -> Unit, onKey: (String) -> Boolean, onCancel: (() -> Unit)?) {
+    // Plain remember: rememberSaveable would write the secret into the saved instance state.
+    var key by remember { mutableStateOf("") }
+    fun submit() {
+        if (key.isNotBlank() && onKey(key)) key = ""
+    }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.not_paired_body), style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_pairing_qr)) }
+            OutlinedTextField(
+                value = key,
+                onValueChange = { key = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.pairing_key)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+            )
+            OutlinedButton(
+                onClick = ::submit,
+                enabled = key.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.pair_with_key)) }
+            if (onCancel != null) {
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
             }
         }
     }

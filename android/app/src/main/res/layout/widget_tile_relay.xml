@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1x1 relay tile. The icon takes whatever height the text leaves free. Colors change from code. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_tile"
+    android:clipToOutline="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="6dp">
+
+    <ImageView
+        android:id="@+id/widget_tile_icon"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_tile_relay" />
+
+    <!-- Two lines, shrinking to fit: the label and state, or short status messages. -->
+    <TextView
+        android:id="@+id/widget_tile_text"
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:autoSizeMaxTextSize="12sp"
+        android:autoSizeMinTextSize="8sp"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeTextType="uniform"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text="@string/tile_relay_preview"
+        android:textColor="@color/widget_text"
+        android:textStyle="bold" />
+</LinearLayout>

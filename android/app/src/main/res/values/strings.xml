@@ -4,9 +4,12 @@
 
     <!-- Main screen -->
     <string name="not_paired_title">Not paired yet</string>
-    <string name="not_paired_body">Open the garage controller\'s web page (http://&lt;pi-address&gt;:8080) and scan its QR code.</string>
+    <string name="not_paired_body">Open the garage controller\'s web page (http://&lt;pi-address&gt;:8080) and scan its QR code, or paste the key from its Pairing details.</string>
     <string name="scan_pairing_qr">Scan pairing QR</string>
     <string name="scan_prompt">Scan the QR code on the garage web page</string>
+    <string name="pairing_key">Key</string>
+    <string name="pair_with_key">Pair with key</string>
+    <string name="cancel">Cancel</string>
     <string name="garage_door">Garage door</string>
     <string name="relay">Relay</string>
     <string name="relay_on">On</string>
@@ -48,6 +51,10 @@
     <string name="widget_open_for_permission">Open the app to allow Bluetooth</string>
     <string name="widget_ready">Ready</string>
     <string name="widget_relay_unknown">–</string>
+    <string name="tile_garage_description">Trigger the garage door with one tap</string>
+    <string name="tile_relay_description">Toggle the relay with one tap</string>
+    <string name="tile_relay_preview">Relay\n–</string>
+    <string name="tile_open_app">Open app</string>
 
     <!-- Bluetooth errors. Status codes are Android GATT/ATT codes. -->
     <string name="err_lost_while_sending">Connection lost while sending; check whether it worked</string>
@@ -57,7 +64,7 @@
     <string name="err_bluetooth_off">Bluetooth is off</string>
     <string name="err_scan_failed">Bluetooth scan failed (error %1$d)</string>
     <string name="err_not_found">Garage not found. Is it in range and running?</string>
-    <string name="err_auth">Rejected: authentication failed. Scan the pairing QR again.</string>
+    <string name="err_auth">Rejected: authentication failed. Pair the app again.</string>
     <string name="err_busy">The garage door is already moving</string>
     <string name="err_hardware">The garage controller reported a hardware error</string>
     <string name="err_version">App and server versions don\'t match (status %1$d)</string>

@@ -179,12 +179,12 @@ cd android
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Open the app, tap **Scan pairing QR** and scan the code on the web UI. It needs the Bluetooth (nearby devices) and camera permissions. After pairing:
+Open the app, tap **Scan pairing QR** and scan the code on the web UI. It needs the Bluetooth (nearby devices) and camera permissions. To pair without the camera, paste the key into the **Key** field instead: copy it from *Pairing details* on the web UI or from `key.txt`. The field also accepts the JSON from `/api/pairing`, which includes the Bluetooth address, so the app doesn't have to scan for the garage. After pairing:
 
 - **Garage door** sends one pulse.
 - **On** / **Off** set the relay.
 
-The **Garage** home-screen widget has the same garage door button plus a relay toggle.
+The **Garage** home-screen widget has the same garage door button plus a relay toggle. For less space, the **Garage door** and **Relay** widgets are separate 1x1 tiles.
 
 The app is in English and Slovenian. It follows the phone's language; on Android 13+ you can also choose one for this app alone in *Settings › Apps › Garage › Language*.
 
