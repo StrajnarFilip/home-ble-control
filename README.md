@@ -13,6 +13,62 @@ You can control it three ways:
 
 The only configuration is the AES key.
 
+## Quickstart: fresh Ubuntu on a Raspberry Pi
+
+On a freshly flashed Ubuntu Server Pi, log in over SSH and paste this whole block. It builds the server on the Pi, installs it as a systemd service and applies the [prerequisites](#raspberry-pi-prerequisites-ubuntu-or-raspberry-pi-os). Copy everything from `(` to `)`: the block stops at the first error, only reboots if everything succeeded, and is safe to paste again.
+
+```sh
+(
+set -eo pipefail
+
+# Tools: git, plus Go from go.dev (Ubuntu's golang package is older than go.mod needs)
+sudo apt-get -o DPkg::Lock::Timeout=300 update
+sudo apt-get -o DPkg::Lock::Timeout=300 install -y git curl
+GO_VERSION=$(curl -fsSL 'https://go.dev/VERSION?m=text' | sed -n 1p)
+GO_ARCH=$(dpkg --print-architecture | sed 's/armhf/armv6l/')
+sudo rm -rf /usr/local/go
+curl -fsSL "https://go.dev/dl/$GO_VERSION.linux-$GO_ARCH.tar.gz" | sudo tar -C /usr/local -xz
+
+# Build, install, and enable the service (it starts after the reboot)
+[ -d ~/home-ble-control ] || git clone https://github.com/StrajnarFilip/home-ble-control.git ~/home-ble-control
+cd ~/home-ble-control/server
+git pull --ff-only
+CGO_ENABLED=0 /usr/local/go/bin/go build -trimpath -ldflags='-s -w' -o garage-ctl .
+sudo install -D -m 0755 garage-ctl /opt/garage-ctl/garage-ctl
+sudo install -m 0644 garage-ctl.service /etc/systemd/system/garage-ctl.service
+sudo systemctl daemon-reload
+sudo systemctl enable garage-ctl
+
+# Free GPIO 14/15 from the serial console, and keep bluetoothd (if any) off the adapter
+sudo sed -i 's/console=serial0,[0-9]* *//' /boot/firmware/cmdline.txt
+sudo sed -i 's/^enable_uart=.*/enable_uart=0/' /boot/firmware/config.txt
+grep -q '^enable_uart=' /boot/firmware/config.txt || echo 'enable_uart=0' | sudo tee -a /boot/firmware/config.txt >/dev/null
+sudo systemctl disable --now bluetooth 2>/dev/null || true
+
+sudo reboot
+)
+```
+
+After the reboot:
+
+```sh
+systemctl status garage-ctl     # active (running)
+journalctl -u garage-ctl -f     # look for "gpio: using …" and "ble: advertising …"
+hostname -I                     # the Pi's IP address
+```
+
+Open `http://<pi-ip>:8080` and scan the pairing QR code with the [Android app](#android-app-android).
+
+To update later:
+
+```sh
+cd ~/home-ble-control && git pull && cd server &&
+CGO_ENABLED=0 /usr/local/go/bin/go build -trimpath -ldflags='-s -w' -o garage-ctl . &&
+sudo install -m 0755 garage-ctl /opt/garage-ctl/garage-ctl &&
+sudo install -m 0644 garage-ctl.service /etc/systemd/system/garage-ctl.service &&
+sudo systemctl daemon-reload && sudo systemctl restart garage-ctl
+```
+
 ## Server (`server/`)
 
 ### Build
@@ -64,28 +120,33 @@ Relays are assumed **active-high** (pin HIGH = relay on). If yours trigger on LO
 
 ### systemd unit
 
-`/etc/systemd/system/garage-ctl.service`:
+The unit is [`server/garage-ctl.service`](server/garage-ctl.service):
 
 ```ini
 [Unit]
 Description=Garage controller
 After=network.target
+# Keep restarting no matter how often it fails.
+StartLimitIntervalSec=0
 
 [Service]
 WorkingDirectory=/opt/garage-ctl
 ExecStart=/opt/garage-ctl/garage-ctl
-Restart=on-failure
+Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Then:
+`Restart=always` restarts the server 3 s after any exit, clean or not. `StartLimitIntervalSec=0` stops systemd from giving up after repeated failures.
+
+The quickstart installs it for you. To install it by hand, run this from `server/`, with the binary built as `garage-ctl`:
 
 ```sh
-sudo mkdir -p /opt/garage-ctl
-sudo cp garage-ctl /opt/garage-ctl/
+sudo install -D -m 0755 garage-ctl /opt/garage-ctl/garage-ctl
+sudo install -m 0644 garage-ctl.service /etc/systemd/system/garage-ctl.service
+sudo systemctl daemon-reload
 sudo systemctl enable --now garage-ctl
 ```
 

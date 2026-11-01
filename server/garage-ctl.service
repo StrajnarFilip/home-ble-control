@@ -1,0 +1,14 @@
+[Unit]
+Description=Garage controller
+After=network.target
+# Keep restarting no matter how often it fails.
+StartLimitIntervalSec=0
+
+[Service]
+WorkingDirectory=/opt/garage-ctl
+ExecStart=/opt/garage-ctl/garage-ctl
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
