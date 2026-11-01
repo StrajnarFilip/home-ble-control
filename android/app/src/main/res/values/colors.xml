@@ -1,4 +1,13 @@
 <resources>
     <color name="background">#FF151514</color>
     <color name="ic_launcher_background">#FF2F6FDF</color>
+
+    <!-- Widget: the wallpaper-based system palette (Android 12+); dark variants in values-night. -->
+    <color name="widget_bg">@android:color/system_neutral1_50</color>
+    <color name="widget_button">@android:color/system_accent1_100</color>
+    <color name="widget_button_on">@android:color/system_accent1_600</color>
+    <color name="widget_text">@android:color/system_accent1_900</color>
+    <color name="widget_text_dim">@android:color/system_neutral2_700</color>
+    <color name="widget_text_on">@android:color/system_accent1_0</color>
+    <color name="widget_ripple">#29000000</color>
 </resources>

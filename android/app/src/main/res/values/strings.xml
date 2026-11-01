@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Garage</string>
+    <string name="widget_description">Garage door and relay, one tap away</string>
 </resources>

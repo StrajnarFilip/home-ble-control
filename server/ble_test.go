@@ -152,3 +152,52 @@ func TestBLEDisconnectForgetsChallenge(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestBLEStateNotifications(t *testing.T) {
+	s, _ := newTestBLE(t)
+	sent := make(chan []byte, 8)
+	n := ble.NewNotifier(func(b []byte) (int, error) {
+		sent <- append([]byte(nil), b...)
+		return len(b), nil
+	})
+	done := make(chan struct{})
+	go func() {
+		s.notifyState(ble.NewRequest(newFakeBLEConn(), nil, 0), n)
+		close(done)
+	}()
+	next := func(want []byte) {
+		t.Helper()
+		select {
+		case got := <-sent:
+			if !bytes.Equal(got, want) {
+				t.Fatalf("notified %v, want %v", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("no notification, want %v", want)
+		}
+	}
+
+	next([]byte{0, 0}) // Current state on subscribe.
+	if err := s.ctrl.SetRelay(true); err != nil {
+		t.Fatal(err)
+	}
+	next([]byte{1, 0})
+	if err := s.ctrl.PulseGarage(); err != nil {
+		t.Fatal(err)
+	}
+	next([]byte{1, 1})
+	next([]byte{1, 0}) // Pulse released.
+
+	n.Close() // Unsubscribe.
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("notifyState did not return after unsubscribe")
+	}
+	s.ctrl.mu.Lock()
+	watchers := len(s.ctrl.watchers)
+	s.ctrl.mu.Unlock()
+	if watchers != 0 {
+		t.Fatalf("%d watchers left after unsubscribe", watchers)
+	}
+}

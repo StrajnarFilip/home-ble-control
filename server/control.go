@@ -25,6 +25,7 @@ type Controller struct {
 	relayOn    bool
 	garageBusy bool
 	closed     bool
+	watchers   map[chan struct{}]struct{}
 }
 
 func NewController(l Lines) *Controller { return &Controller{lines: l} }
@@ -38,6 +39,33 @@ func (c *Controller) State() State {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return State{Relay: c.relayOn, GarageBusy: c.garageBusy}
+}
+
+// Watch returns a channel that is signalled after every state change, and a
+// function that stops watching. Signals coalesce, so read State() on each one.
+func (c *Controller) Watch() (<-chan struct{}, func()) {
+	ch := make(chan struct{}, 1)
+	c.mu.Lock()
+	if c.watchers == nil {
+		c.watchers = map[chan struct{}]struct{}{}
+	}
+	c.watchers[ch] = struct{}{}
+	c.mu.Unlock()
+	return ch, func() {
+		c.mu.Lock()
+		delete(c.watchers, ch)
+		c.mu.Unlock()
+	}
+}
+
+// changedLocked signals every watcher without blocking. c.mu must be held.
+func (c *Controller) changedLocked() {
+	for ch := range c.watchers {
+		select {
+		case ch <- struct{}{}:
+		default: // A signal is already pending.
+		}
+	}
 }
 
 // PulseGarage energizes the garage relay for garagePulse, then releases it.
@@ -55,6 +83,7 @@ func (c *Controller) PulseGarage() error {
 		return err
 	}
 	c.garageBusy = true
+	c.changedLocked()
 	log.Printf("garage: pulse start")
 	time.AfterFunc(garagePulse, c.endPulse)
 	return nil
@@ -76,6 +105,7 @@ func (c *Controller) endPulse() {
 		time.Sleep(100 * time.Millisecond)
 	}
 	c.garageBusy = false
+	c.changedLocked()
 	log.Printf("garage: pulse end")
 }
 
@@ -88,7 +118,10 @@ func (c *Controller) SetRelay(on bool) error {
 	if err := c.lines.SetRelay(on); err != nil {
 		return err
 	}
-	c.relayOn = on
+	if c.relayOn != on {
+		c.relayOn = on
+		c.changedLocked()
+	}
 	log.Printf("relay: %s", onOff(on))
 	return nil
 }

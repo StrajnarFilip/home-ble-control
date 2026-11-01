@@ -9,7 +9,7 @@ You can control it three ways:
 
 1. **Web UI**: `http://<pi>:8080`. It also shows the pairing QR code.
 2. **REST API**: same port; see below.
-3. **Bluetooth LE**: the Android app in `android/`. Every command is authenticated with the shared AES key and protected against replay.
+3. **Bluetooth LE**: the Android app in `android/` and its home-screen widget. Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
 
 The only configuration is the AES key.
 
@@ -184,7 +184,13 @@ Open the app, tap **Scan pairing QR** and scan the code on the web UI. It needs 
 - **Garage door** sends one pulse.
 - **On** / **Off** set the relay.
 
-The app connects when it opens and disconnects when you leave it. The key is stored in app-private storage and is excluded from backups and device transfers. Re-pair on a new phone.
+The **Garage** home-screen widget has the same garage door button plus a relay toggle.
+
+To make every tap instant, a foreground service keeps the connection open whenever the garage is in range. When it isn't, Android reconnects in the background within a second or two of the garage coming back into range. The service starts again after a reboot or an app update. Android lists it under active apps. Its silent "Connected to the garage" notification only appears if you allow the app's notifications. The service keeps a short connection interval, so it uses some battery, about as much as a smartwatch link. Tap **Forget** to stop it.
+
+Relay changes made by anyone (another phone, the web UI, the REST API) show up in the app and the widget straight away.
+
+The key is stored in app-private storage and is excluded from backups and device transfers. Re-pair on a new phone.
 
 ## BLE protocol
 
@@ -194,12 +200,14 @@ Service `5f6d0001-8c2b-4e3a-9a41-2b7c0e9d4a10`:
 |---|---|---|---|
 | challenge | `…0002…` | read | 16 fresh random bytes on every read |
 | command | `…0003…` | write (with response) | `cmd(1) \| arg(1) \| tag(16)` |
-| state | `…0004…` | read | `relay(1) \| garageBusy(1)` |
+| state | `…0004…` | read, notify | `relay(1) \| garageBusy(1)`; on subscribe and on every change |
 
 - `tag = AES-CMAC(key, "HBC1" \| challenge \| cmd \| arg)` (RFC 4493).
 - Commands: `0x01 00` pulses the garage; `0x02 00/01` sets the relay off or on.
 
 Each challenge belongs to the connection that read it, lasts 30 s and is consumed by the first write, valid or not. A recorded command can't be replayed, and a tampered one fails the tag check.
+
+The server goes on advertising while phones are connected, so further phones can connect. The adapter's connection limit still applies (usually several phones). If an adapter can't advertise while connected, the log says so, and other phones then wait until the connected one leaves.
 
 Rejected writes return an ATT error:
 

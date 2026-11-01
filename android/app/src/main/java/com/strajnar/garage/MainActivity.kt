@@ -1,15 +1,11 @@
 package com.strajnar.garage
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,18 +44,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
-private val BLE_PERMISSIONS = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-
-private fun hasBlePermissions(context: Context) =
-    BLE_PERMISSIONS.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
-
 class MainActivity : ComponentActivity() {
-    private val vm: GarageViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,33 +57,36 @@ class MainActivity : ComponentActivity() {
             val ctx = LocalContext.current
             val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
             MaterialTheme(colorScheme = colors) {
-                Surface(Modifier.fillMaxSize()) { GarageScreen(vm) }
+                Surface(Modifier.fillMaxSize()) { GarageScreen(garage) }
             }
         }
     }
 
     override fun onStart() {
         super.onStart()
-        // Connect early so the first button press is quick and the relay state is shown.
-        if (vm.ui.value.paired && hasBlePermissions(this)) vm.refresh()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        if (!isChangingConfigurations) vm.disconnect()
+        if (!hasBlePermissions(this)) return
+        // The service keeps the connection open from now on (and after reboots). If it isn't
+        // connected yet, connect right away instead of waiting for its background attempt.
+        garage.startService(this)
+        if (garage.status.value.paired && !garage.status.value.connected) garage.refresh()
     }
 }
 
 @Composable
-private fun GarageScreen(vm: GarageViewModel) {
-    val ui by vm.ui.collectAsStateWithLifecycle()
+private fun GarageScreen(vm: Garage) {
+    val ui by vm.status.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         val action = afterPermission
         afterPermission = null
-        if (result.values.all { it }) action?.invoke() else vm.showError("Bluetooth permission is needed to reach the garage")
+        if (result.values.all { it }) {
+            vm.startService(context)
+            action?.invoke()
+        } else {
+            vm.showError("Bluetooth permission is needed to reach the garage")
+        }
     }
     fun withBle(action: () -> Unit) {
         if (hasBlePermissions(context)) {
@@ -107,7 +99,12 @@ private fun GarageScreen(vm: GarageViewModel) {
 
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
-        if (vm.onScanned(text)) withBle { vm.refresh() }
+        if (vm.onScanned(text)) {
+            withBle {
+                vm.startService(context) // Already running if Bluetooth was allowed before; harmless.
+                vm.refresh()
+            }
+        }
     }
     fun scanQr() = scanLauncher.launch(
         ScanOptions()
@@ -191,14 +188,18 @@ private fun GarageScreen(vm: GarageViewModel) {
 }
 
 @Composable
-private fun ConnectionRow(ui: UiState) {
+private fun ConnectionRow(ui: GarageStatus) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier.size(10.dp).clip(CircleShape)
                 .background(if (ui.connected) Color(0xFF2E9D5B) else MaterialTheme.colorScheme.outline),
         )
         Text(
-            if (ui.connected) "Connected over Bluetooth" else "Not connected",
+            when {
+                ui.connected -> "Connected over Bluetooth"
+                ui.busy -> "Connecting…"
+                else -> "Not connected"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -206,7 +207,7 @@ private fun ConnectionRow(ui: UiState) {
 }
 
 @Composable
-private fun StatusLine(ui: UiState) {
+private fun StatusLine(ui: GarageStatus) {
     val msg = ui.message ?: return
     Text(
         msg,
