@@ -58,15 +58,13 @@ hostname -I                     # the Pi's IP address
 
 Open `http://<pi-ip>:8080` and scan the pairing QR code with the [Android app](#android-app-android).
 
-To update later:
+To update later, run [`server/update.sh`](server/update.sh) on the Pi. It pulls the latest code, rebuilds and reinstalls the server, restarts the service and prints its startup log. Your key is kept, so phones stay paired.
 
 ```sh
-cd ~/home-ble-control && git pull && cd server &&
-CGO_ENABLED=0 /usr/local/go/bin/go build -trimpath -ldflags='-s -w' -o garage-ctl . &&
-sudo install -m 0755 garage-ctl /opt/garage-ctl/garage-ctl &&
-sudo install -m 0644 garage-ctl.service /etc/systemd/system/garage-ctl.service &&
-sudo systemctl daemon-reload && sudo systemctl restart garage-ctl
+~/home-ble-control/server/update.sh
 ```
+
+A clone from before the script existed needs one pull first: `git -C ~/home-ble-control pull --ff-only`.
 
 ## Server (`server/`)
 
