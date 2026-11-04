@@ -41,6 +41,45 @@ func TestLoadPins(t *testing.T) {
 	}
 }
 
+func TestLoadActiveLow(t *testing.T) {
+	tests := []struct {
+		name, value string
+		want        bool
+	}{
+		{"default is active-low", "unset", true},
+		{"true", "true", true},
+		{"false", "false", false},
+		{"one", "1", true},
+		{"zero", "0", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(activeLowEnv, tt.value) // Registers restoring the original value.
+			if tt.value == "unset" {
+				os.Unsetenv(activeLowEnv)
+			}
+			got, err := loadActiveLow()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadActiveLowRejectsInvalid(t *testing.T) {
+	for _, v := range []string{"", "yes", "low", "2"} {
+		t.Run(v, func(t *testing.T) {
+			t.Setenv(activeLowEnv, v)
+			if got, err := loadActiveLow(); err == nil {
+				t.Fatalf("got %v, want error", got)
+			}
+		})
+	}
+}
+
 func TestLoadPinsRejectsInvalid(t *testing.T) {
 	tests := []struct{ name, garage, relay string }{
 		{"garage not a number", "GPIO17", "unset"},

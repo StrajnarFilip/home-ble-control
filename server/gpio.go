@@ -10,13 +10,14 @@ import (
 	"github.com/warthog618/go-gpiocdev"
 )
 
-// Hardware wiring. Change activeLow if your relay boards trigger on LOW.
+// Hardware wiring defaults, overridable through the environment.
 const (
 	garagePinEnv     = "GARAGE_GPIO"
 	relayPinEnv      = "RELAY_GPIO"
-	defaultGaragePin = 17 // BCM numbering; header pin 11
-	defaultRelayPin  = 27 // BCM numbering; header pin 13
-	activeLow        = false
+	activeLowEnv     = "GPIO_ACTIVE_LOW"
+	defaultGaragePin = 17   // BCM numbering; header pin 11
+	defaultRelayPin  = 27   // BCM numbering; header pin 13
+	defaultActiveLow = true // Pin LOW = relay on.
 	gpioConsumer     = "garage-ctl"
 )
 
@@ -56,6 +57,20 @@ func pinFromEnv(name string, def int) (int, error) {
 	return pin, nil
 }
 
+// loadActiveLow reads the relay polarity from the environment. As with the
+// pins, an invalid value is an error: guessing could energize the relays.
+func loadActiveLow() (bool, error) {
+	v, ok := os.LookupEnv(activeLowEnv)
+	if !ok {
+		return defaultActiveLow, nil
+	}
+	activeLow, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("$%s: %q is not true or false", activeLowEnv, v)
+	}
+	return activeLow, nil
+}
+
 // Labels of the gpiochip that drives the 40-pin header on each Pi generation.
 var headerChipLabels = []string{
 	"pinctrl-rp1",     // Pi 5
@@ -86,7 +101,7 @@ type gpioLines struct {
 	garage, relay *gpiocdev.Line
 }
 
-func openGPIO(pins Pins) (Lines, error) {
+func openGPIO(pins Pins, activeLow bool) (Lines, error) {
 	chip := findHeaderChip()
 	opts := []gpiocdev.LineReqOption{gpiocdev.AsOutput(0), gpiocdev.WithConsumer(gpioConsumer)}
 	if activeLow {
@@ -123,15 +138,19 @@ func b2i(b bool) int {
 	return 0
 }
 
-// mockLines logs instead of touching hardware (for -mock-gpio on a PC).
-type mockLines struct{ pins Pins }
+// mockLines logs the pin levels instead of touching hardware (for -mock-gpio on
+// a PC).
+type mockLines struct {
+	pins      Pins
+	activeLow bool
+}
 
 func (m mockLines) SetGarage(active bool) error {
-	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Garage, b2i(active))
+	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Garage, b2i(active != m.activeLow))
 	return nil
 }
 func (m mockLines) SetRelay(active bool) error {
-	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Relay, b2i(active))
+	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Relay, b2i(active != m.activeLow))
 	return nil
 }
 func (mockLines) Close() error { return nil }

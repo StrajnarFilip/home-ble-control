@@ -5,7 +5,7 @@ Garage door + relay controller for a Raspberry Pi:
 - **GPIO 17** (header pin 11): garage door relay, energized for a 500 ms pulse.
 - **GPIO 27** (header pin 13): relay, switched on or off.
 
-Both pins can be [changed with environment variables](#gpio-pins).
+Both pins can be [changed with environment variables](#gpio-pins). Relays are assumed active-low, which is [also configurable](#relay-polarity).
 
 You can control it three ways:
 
@@ -139,14 +139,34 @@ If you choose GPIO 14 or 15, free them from the serial port first. They are the 
 - Reboot. On Raspberry Pi OS, `sudo raspi-config` → Interface → Serial Port → No / No does the same.
 - Don't add `dtoverlay=disable-bt`: onboard Bluetooth uses the other UART.
 
+### Relay polarity
+
+Relays are assumed **active-low** (pin LOW = relay on). If yours trigger on HIGH, set `GPIO_ACTIVE_LOW=false`, the same way as the pins above:
+
+```sh
+sudo GPIO_ACTIVE_LOW=false ./garage-ctl
+```
+
+It takes `true` or `false` (or `1` or `0`), and the server refuses to start on anything else. The startup log shows the value in use. With the wrong setting the relays are inverted: the garage relay stays energized while idle and only releases during a pulse.
+
+**Active-low boards at power-up:** GPIO 17 and 27 are pulled LOW by default, which is the "on" level for these boards. The pull is weak, so not every board reacts, but one that does energizes its relays until the server takes over, and the garage door can move when the Pi powers up. Test yours with the door disconnected: cut the power, start the Pi, and check that the relays stay off. Then run `sudo systemctl stop garage-ctl` and check again, because some kernels return a pin to input when the server stops.
+
+If they don't, use one of these:
+
+- **An external pull-up resistor** to 3.3 V on each relay input. This is the only option here that covers the first seconds after power-on.
+- **Pins that are pulled HIGH by default**, such as GPIO 5 and 6 (header pins 29 and 31) on a Pi 4 or earlier.
+- **Firmware settings**, by adding this line to `/boot/firmware/config.txt` with your pin numbers. It takes effect a few seconds after power-on, so it shortens the problem but doesn't remove it. `pu` is there for kernels that return a pin to input when the server stops. Don't use this with active-high boards, because it would energize them.
+
+  ```ini
+  gpio=17,27=op,dh,pu
+  ```
+
 ### Raspberry Pi prerequisites (Ubuntu or Raspberry Pi OS)
 
 1. **Check that Bluetooth exists:** `ls /sys/class/bluetooth` should list `hci0`.
 2. **Raspberry Pi OS only:** `sudo systemctl disable --now bluetooth`. This binary takes the adapter for itself, so `bluetoothd` must not hold it. Ubuntu Server doesn't run `bluetoothd`.
 3. **Run as root**, or give the binary the capabilities it needs:
    `sudo setcap cap_net_admin,cap_net_raw+ep garage-ctl`. That covers Bluetooth only; GPIO also needs access to `/dev/gpiochip*`.
-
-Relays are assumed **active-high** (pin HIGH = relay on). If yours trigger on LOW, set `activeLow = true` in `server/gpio.go`.
 
 ### systemd unit
 

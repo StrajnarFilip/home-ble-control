@@ -1,7 +1,8 @@
 // Command garage-ctl drives a garage-door relay (pulse, GPIO17 by default) and
 // a second relay (on/off, GPIO27 by default) on a Raspberry Pi, via a web UI /
 // REST API and via authenticated BLE for the Android app. It is configured with
-// the AES key and, optionally, the $GARAGE_GPIO and $RELAY_GPIO pin numbers.
+// the AES key and, optionally, the $GARAGE_GPIO and $RELAY_GPIO pin numbers and
+// the $GPIO_ACTIVE_LOW relay polarity (active-low by default).
 package main
 
 import (
@@ -45,9 +46,14 @@ func main() {
 		log.Fatalf("gpio: %v", err)
 	}
 
-	var lines Lines = mockLines{pins}
+	activeLow, err := loadActiveLow()
+	if err != nil {
+		log.Fatalf("gpio: %v", err)
+	}
+
+	var lines Lines = mockLines{pins, activeLow}
 	if !*mockGPIO {
-		if lines, err = openGPIO(pins); err != nil {
+		if lines, err = openGPIO(pins, activeLow); err != nil {
 			log.Fatalf("gpio: %v", err)
 		}
 	}
