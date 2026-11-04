@@ -1,6 +1,7 @@
-// Command garage-ctl drives a garage-door relay (pulse, GPIO14) and a second
-// relay (on/off, GPIO15) on a Raspberry Pi, via a web UI / REST API and via
-// authenticated BLE for the Android app. The only configuration is the AES key.
+// Command garage-ctl drives a garage-door relay (pulse, GPIO17 by default) and
+// a second relay (on/off, GPIO27 by default) on a Raspberry Pi, via a web UI /
+// REST API and via authenticated BLE for the Android app. It is configured with
+// the AES key and, optionally, the $GARAGE_GPIO and $RELAY_GPIO pin numbers.
 package main
 
 import (
@@ -39,9 +40,14 @@ func main() {
 		log.Fatalf("key: %v", err)
 	}
 
-	var lines Lines = mockLines{}
+	pins, err := loadPins()
+	if err != nil {
+		log.Fatalf("gpio: %v", err)
+	}
+
+	var lines Lines = mockLines{pins}
 	if !*mockGPIO {
-		if lines, err = openGPIO(); err != nil {
+		if lines, err = openGPIO(pins); err != nil {
 			log.Fatalf("gpio: %v", err)
 		}
 	}
@@ -51,7 +57,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	web := &webServer{ctrl: ctrl, key: key}
+	web := &webServer{ctrl: ctrl, key: key, pins: pins}
 
 	// BLE setup can block for a while if the adapter is busy, so do it in the
 	// background; the web UI works regardless.

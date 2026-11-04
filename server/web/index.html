@@ -42,7 +42,7 @@
 <main>
   <header>
     <h1>Garage control</h1>
-    <p class="hint">Raspberry Pi · GPIO 14 garage · GPIO 15 relay</p>
+    <p class="hint">Raspberry Pi<span id="pins"></span></p>
   </header>
 
   <section>
@@ -115,6 +115,9 @@ $("pulse").onclick = () => post("/api/garage/pulse", null, "Garage pulsed");
 $("on").onclick = () => post("/api/relay", { on: true }, "Relay on");
 $("off").onclick = () => post("/api/relay", { on: false }, "Relay off");
 
+fetch("/api/pins").then((r) => r.json()).then((p) => {
+  $("pins").textContent = ` · GPIO ${p.garage} garage · GPIO ${p.relay} relay`;
+});
 fetch("/api/pairing").then((r) => r.json()).then((p) => {
   $("addr").textContent = p.addr || "Bluetooth not running";
   $("key").textContent = p.key;

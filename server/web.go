@@ -26,6 +26,7 @@ type Pairing struct {
 type webServer struct {
 	ctrl *Controller
 	key  []byte
+	pins Pins
 
 	mu      sync.Mutex
 	bleAddr string
@@ -52,6 +53,9 @@ func (w *webServer) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/state", func(rw http.ResponseWriter, r *http.Request) {
 		writeJSON(rw, http.StatusOK, w.ctrl.State())
+	})
+	mux.HandleFunc("GET /api/pins", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, w.pins)
 	})
 	mux.HandleFunc("POST /api/garage/pulse", func(rw http.ResponseWriter, r *http.Request) {
 		if err := w.ctrl.PulseGarage(); err != nil {

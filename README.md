@@ -2,8 +2,10 @@
 
 Garage door + relay controller for a Raspberry Pi:
 
-- **GPIO 14** (header pin 8): garage door relay, energized for a 500 ms pulse.
-- **GPIO 15** (header pin 10): relay, switched on or off.
+- **GPIO 17** (header pin 11): garage door relay, energized for a 500 ms pulse.
+- **GPIO 27** (header pin 13): relay, switched on or off.
+
+Both pins can be [changed with environment variables](#gpio-pins).
 
 You can control it three ways:
 
@@ -11,7 +13,7 @@ You can control it three ways:
 2. **REST API**: same port; see below.
 3. **Bluetooth LE**: the Android app in `android/` and its home-screen widget. Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
 
-The only configuration is the AES key.
+The only required configuration is the AES key.
 
 ## Quickstart: fresh Ubuntu on a Raspberry Pi
 
@@ -39,10 +41,7 @@ sudo install -m 0644 garage-ctl.service /etc/systemd/system/garage-ctl.service
 sudo systemctl daemon-reload
 sudo systemctl enable garage-ctl
 
-# Free GPIO 14/15 from the serial console, and keep bluetoothd (if any) off the adapter
-sudo sed -i 's/console=serial0,[0-9]* *//' /boot/firmware/cmdline.txt
-sudo sed -i 's/^enable_uart=.*/enable_uart=0/' /boot/firmware/config.txt
-grep -q '^enable_uart=' /boot/firmware/config.txt || echo 'enable_uart=0' | sudo tee -a /boot/firmware/config.txt >/dev/null
+# Keep bluetoothd (if any) off the adapter
 sudo systemctl disable --now bluetooth 2>/dev/null || true
 
 sudo reboot
@@ -104,16 +103,49 @@ The key is hex: 32, 48 or 64 characters (AES-128, AES-192 or AES-256). If `./key
 
 Other flags: `-listen :8080`, plus `-mock-gpio` and `-no-ble` for development on a PC.
 
+### GPIO pins
+
+Pins use BCM numbering, not header pin numbers:
+
+| Env var | Output | Default |
+|---|---|---|
+| `GARAGE_GPIO` | garage door relay | `17` (header pin 11) |
+| `RELAY_GPIO` | on/off relay | `27` (header pin 13) |
+
+```sh
+sudo GARAGE_GPIO=22 RELAY_GPIO=23 ./garage-ctl
+```
+
+The server refuses to start if a value isn't a number or both variables name the same pin. The startup log shows the pins in use, and the web UI shows them under its title.
+
+Under systemd, set them in a drop-in, because updating reinstalls the unit file and would overwrite edits made to it directly:
+
+```sh
+sudo systemctl edit garage-ctl
+```
+
+```ini
+[Service]
+Environment=GARAGE_GPIO=22
+Environment=RELAY_GPIO=23
+```
+
+```sh
+sudo systemctl restart garage-ctl
+```
+
+If you choose GPIO 14 or 15, free them from the serial port first. They are the UART TX/RX pins, and while the serial console is on, boot messages toggle whatever is connected to them.
+
+- In `/boot/firmware/cmdline.txt`, remove `console=serial0,115200`.
+- In `/boot/firmware/config.txt`, set `enable_uart=0`.
+- Reboot. On Raspberry Pi OS, `sudo raspi-config` → Interface → Serial Port → No / No does the same.
+- Don't add `dtoverlay=disable-bt`: onboard Bluetooth uses the other UART.
+
 ### Raspberry Pi prerequisites (Ubuntu or Raspberry Pi OS)
 
-1. **Free GPIO 14 and 15 from the serial port.** They are the UART TX/RX pins. If the serial console stays on, boot messages toggle the garage relay.
-   - In `/boot/firmware/cmdline.txt`, remove `console=serial0,115200`.
-   - In `/boot/firmware/config.txt`, set `enable_uart=0`.
-   - Reboot. On Raspberry Pi OS, `sudo raspi-config` → Interface → Serial Port → No / No does the same.
-   - Don't add `dtoverlay=disable-bt`: onboard Bluetooth uses the other UART.
-2. **Check that Bluetooth exists:** `ls /sys/class/bluetooth` should list `hci0`.
-3. **Raspberry Pi OS only:** `sudo systemctl disable --now bluetooth`. This binary takes the adapter for itself, so `bluetoothd` must not hold it. Ubuntu Server doesn't run `bluetoothd`.
-4. **Run as root**, or give the binary the capabilities it needs:
+1. **Check that Bluetooth exists:** `ls /sys/class/bluetooth` should list `hci0`.
+2. **Raspberry Pi OS only:** `sudo systemctl disable --now bluetooth`. This binary takes the adapter for itself, so `bluetoothd` must not hold it. Ubuntu Server doesn't run `bluetoothd`.
+3. **Run as root**, or give the binary the capabilities it needs:
    `sudo setcap cap_net_admin,cap_net_raw+ep garage-ctl`. That covers Bluetooth only; GPIO also needs access to `/dev/gpiochip*`.
 
 Relays are assumed **active-high** (pin HIGH = relay on). If yours trigger on LOW, set `activeLow = true` in `server/gpio.go`.
@@ -159,6 +191,7 @@ The web UI and REST API are **unauthenticated**: anyone who can reach the port c
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/state` | | `{"relay":false,"garageBusy":false}` |
+| GET | `/api/pins` | | `{"garage":17,"relay":27}` |
 | POST | `/api/garage/pulse` | | `{"ok":true}`, or `409` if a pulse is already running |
 | POST | `/api/relay` | `{"on":true}` | `{"relay":true}` |
 | GET | `/api/pairing` | | `{"v":1,"key":"…","addr":"B8:27:EB:…","name":"Garage"}` |

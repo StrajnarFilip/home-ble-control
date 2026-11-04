@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/warthog618/go-gpiocdev"
@@ -10,11 +12,49 @@ import (
 
 // Hardware wiring. Change activeLow if your relay boards trigger on LOW.
 const (
-	garagePin    = 14 // BCM numbering; header pin 8
-	relayPin     = 15 // BCM numbering; header pin 10
-	activeLow    = false
-	gpioConsumer = "garage-ctl"
+	garagePinEnv     = "GARAGE_GPIO"
+	relayPinEnv      = "RELAY_GPIO"
+	defaultGaragePin = 17 // BCM numbering; header pin 11
+	defaultRelayPin  = 27 // BCM numbering; header pin 13
+	activeLow        = false
+	gpioConsumer     = "garage-ctl"
 )
+
+// Pins holds the BCM numbers of the two outputs.
+type Pins struct {
+	Garage int `json:"garage"`
+	Relay  int `json:"relay"`
+}
+
+// loadPins reads the pins from the environment, using the defaults for unset
+// variables. Invalid values are errors: falling back to a default would drive
+// a pin the user didn't choose.
+func loadPins() (Pins, error) {
+	garage, err := pinFromEnv(garagePinEnv, defaultGaragePin)
+	if err != nil {
+		return Pins{}, err
+	}
+	relay, err := pinFromEnv(relayPinEnv, defaultRelayPin)
+	if err != nil {
+		return Pins{}, err
+	}
+	if garage == relay {
+		return Pins{}, fmt.Errorf("garage ($%s) and relay ($%s) are both GPIO%d", garagePinEnv, relayPinEnv, garage)
+	}
+	return Pins{Garage: garage, Relay: relay}, nil
+}
+
+func pinFromEnv(name string, def int) (int, error) {
+	v, ok := os.LookupEnv(name)
+	if !ok {
+		return def, nil
+	}
+	pin, err := strconv.Atoi(v)
+	if err != nil || pin < 0 {
+		return 0, fmt.Errorf("$%s: %q is not a GPIO number", name, v)
+	}
+	return pin, nil
+}
 
 // Labels of the gpiochip that drives the 40-pin header on each Pi generation.
 var headerChipLabels = []string{
@@ -46,22 +86,22 @@ type gpioLines struct {
 	garage, relay *gpiocdev.Line
 }
 
-func openGPIO() (Lines, error) {
+func openGPIO(pins Pins) (Lines, error) {
 	chip := findHeaderChip()
 	opts := []gpiocdev.LineReqOption{gpiocdev.AsOutput(0), gpiocdev.WithConsumer(gpioConsumer)}
 	if activeLow {
 		opts = append(opts, gpiocdev.AsActiveLow)
 	}
-	g, err := gpiocdev.RequestLine(chip, garagePin, opts...)
+	g, err := gpiocdev.RequestLine(chip, pins.Garage, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("request GPIO%d on %s: %w (is the serial console/UART still enabled on GPIO14/15?)", garagePin, chip, err)
+		return nil, fmt.Errorf("request GPIO%d on %s: %w (is another process or kernel driver using it?)", pins.Garage, chip, err)
 	}
-	r, err := gpiocdev.RequestLine(chip, relayPin, opts...)
+	r, err := gpiocdev.RequestLine(chip, pins.Relay, opts...)
 	if err != nil {
 		g.Close()
-		return nil, fmt.Errorf("request GPIO%d on %s: %w (is the serial console/UART still enabled on GPIO14/15?)", relayPin, chip, err)
+		return nil, fmt.Errorf("request GPIO%d on %s: %w (is another process or kernel driver using it?)", pins.Relay, chip, err)
 	}
-	log.Printf("gpio: using %s, garage=GPIO%d relay=GPIO%d activeLow=%v", chip, garagePin, relayPin, activeLow)
+	log.Printf("gpio: using %s, garage=GPIO%d relay=GPIO%d activeLow=%v", chip, pins.Garage, pins.Relay, activeLow)
 	return &gpioLines{garage: g, relay: r}, nil
 }
 
@@ -84,14 +124,14 @@ func b2i(b bool) int {
 }
 
 // mockLines logs instead of touching hardware (for -mock-gpio on a PC).
-type mockLines struct{}
+type mockLines struct{ pins Pins }
 
-func (mockLines) SetGarage(active bool) error {
-	log.Printf("mock-gpio: GPIO%d = %d", garagePin, b2i(active))
+func (m mockLines) SetGarage(active bool) error {
+	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Garage, b2i(active))
 	return nil
 }
-func (mockLines) SetRelay(active bool) error {
-	log.Printf("mock-gpio: GPIO%d = %d", relayPin, b2i(active))
+func (m mockLines) SetRelay(active bool) error {
+	log.Printf("mock-gpio: GPIO%d = %d", m.pins.Relay, b2i(active))
 	return nil
 }
 func (mockLines) Close() error { return nil }
