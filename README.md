@@ -276,7 +276,7 @@ Rejected writes return an ATT error:
 
 One **Garage door** button that fills the watch screen and sends one pulse. The watch buzzes once when the pulse was sent and three times when it failed, so you don't have to look. It requires Wear OS 4 or newer and was written for the Galaxy Watch 6 Classic.
 
-The watch talks to the garage over Bluetooth LE by itself, so the phone can stay at home. It connects when you press the button and disconnects right after, which saves battery but makes a press slower than on the phone. It needs the server to go on advertising while a phone is connected (see [BLE protocol](#ble-protocol)).
+The watch talks to the garage over Bluetooth LE by itself, so the phone can stay at home. It connects as soon as the app is on screen and disconnects when it leaves the screen, which saves battery. The button lights up once it's connected, and a press is then sent right away; pressing before that also works, but takes longer. It needs the server to go on advertising while a phone is connected (see [BLE protocol](#ble-protocol)).
 
 To install it, connect to the watch over Wi-Fi from a computer on the same network:
 

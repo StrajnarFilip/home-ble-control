@@ -66,11 +66,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStart() {
+        super.onStart()
+        garage.screenShown()
+    }
+
+    override fun onStop() {
+        garage.screenHidden()
+        super.onStop()
+    }
 }
 
 @Composable
 private fun GarageScreen(vm: WatchGarage) {
     val ui by vm.status.collectAsStateWithLifecycle()
+    val connected by vm.connected.collectAsStateWithLifecycle()
     var rePairing by remember { mutableStateOf(false) }
 
     if (!ui.paired || rePairing) {
@@ -79,13 +90,16 @@ private fun GarageScreen(vm: WatchGarage) {
             onCancel = if (ui.paired) ({ rePairing = false }) else null,
         )
     } else {
-        GarageButton(ui.pulse, onPress = vm::pulseGarage, onRePair = { rePairing = true }, onDenied = vm::showError)
+        GarageButton(ui.pulse, connected, onPress = vm::pulseGarage, onRePair = { rePairing = true }, onDenied = vm::showError)
     }
 }
 
-/** Fills the round screen, so it can be hit without looking. Its long press is the way to re-pair. */
+/**
+ * Fills the round screen, so it can be hit without looking. Its long press is the way to re-pair.
+ * It lights up once connected, which also shows when you've come into range.
+ */
 @Composable
-private fun GarageButton(pulse: Pulse, onPress: () -> Unit, onRePair: () -> Unit, onDenied: (String) -> Unit) {
+private fun GarageButton(pulse: Pulse, connected: Boolean, onPress: () -> Unit, onRePair: () -> Unit, onDenied: (String) -> Unit) {
     val context = LocalContext.current
     val permissionNeeded = stringResource(R.string.permission_needed)
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -99,10 +113,10 @@ private fun GarageButton(pulse: Pulse, onPress: () -> Unit, onRePair: () -> Unit
         onLongClickLabel = stringResource(R.string.re_pair),
         enabled = pulse != Pulse.Sending,
         shape = CircleShape,
-        colors = if (pulse is Pulse.Failed) {
-            ButtonDefaults.buttonColors(containerColor = colors.errorContainer, contentColor = colors.onErrorContainer)
-        } else {
-            ButtonDefaults.buttonColors()
+        colors = when {
+            pulse is Pulse.Failed -> ButtonDefaults.buttonColors(containerColor = colors.errorContainer, contentColor = colors.onErrorContainer)
+            connected -> ButtonDefaults.buttonColors()
+            else -> ButtonDefaults.filledTonalButtonColors()
         },
         contentPadding = PaddingValues(20.dp),
         modifier = Modifier.fillMaxSize().padding(6.dp),

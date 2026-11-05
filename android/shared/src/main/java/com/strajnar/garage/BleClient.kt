@@ -236,7 +236,23 @@ class GarageBle(private val context: Context) {
         return open(scan(pairing))
     }
 
+    /**
+     * Android often fails a connection once (status 133) when the signal is weak, and the next
+     * try works. Commands are only written to an open link, so trying again can't send one twice.
+     */
     private suspend fun open(target: BluetoothDevice): GattLink {
+        repeat(OPEN_ATTEMPTS - 1) {
+            try {
+                return openOnce(target)
+            } catch (e: BleException) {
+                if (e.cause is TimeoutCancellationException) throw e
+            }
+            delay(OPEN_RETRY_MS)
+        }
+        return openOnce(target)
+    }
+
+    private suspend fun openOnce(target: BluetoothDevice): GattLink {
         val l = newLink(target)
         l.connect(autoConnect = false, timeoutMs = CONNECT_TIMEOUT_MS)
         l.setUp()
@@ -309,6 +325,8 @@ class GarageBle(private val context: Context) {
         val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         private const val SCAN_TIMEOUT_MS = 10_000L
         private const val CONNECT_TIMEOUT_MS = 10_000L
+        private const val OPEN_ATTEMPTS = 3
+        private const val OPEN_RETRY_MS = 200L
         private const val RETRY_MS = 2_000L
         private const val SCAN_RETRY_MS = 30_000L
 

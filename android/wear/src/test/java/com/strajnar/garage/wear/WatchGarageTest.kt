@@ -225,6 +225,184 @@ class WatchGarageTest {
         assertEquals(Pulse.Idle, garage.status.value.pulse)
         assertTrue(FakeServer.connections.isEmpty())
     }
+
+    /** Runs the main thread until [done], moving its clock on for retry delays. */
+    private fun await(done: () -> Boolean) {
+        val end = System.nanoTime() + 5_000_000_000
+        while (!done() && System.nanoTime() < end) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            scanner().scanCallbacks.firstOrNull()?.let {
+                @Suppress("DEPRECATION") // The replacement takes a dozen advertising details we don't use.
+                it.onScanResult(1, ScanResult(adapter.getRemoteDevice(ADDRESS), null, -50, 0))
+            }
+            Thread.sleep(5)
+        }
+        assertTrue("timed out", done())
+    }
+
+    /** Lets time pass in small steps, so replies from the Bluetooth thread arrive before any timeout. */
+    private fun settle(virtualMs: Long) {
+        repeat((virtualMs / 20).toInt()) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            Thread.sleep(2)
+        }
+    }
+
+    @Test
+    fun `on screen it connects before the press and each press only sends`() {
+        pairWithAddress()
+        garage.screenShown()
+        await { garage.connected.value }
+        assertTrue(FakeServer.writes.isEmpty())
+
+        garage.pulseGarage()
+        assertEquals(Pulse.Sent, awaitResult())
+        garage.pulseGarage()
+        assertEquals(Pulse.Sent, awaitResult())
+
+        assertEquals(2, FakeServer.writes.size)
+        assertEquals(listOf(ADDRESS), FakeServer.connections)
+        assertFalse(FakeServer.allClosed)
+    }
+
+    @Test
+    fun `leaving the screen disconnects and stops trying`() {
+        pairWithAddress()
+        garage.screenShown()
+        await { garage.connected.value }
+
+        garage.screenHidden()
+        assertTrue(FakeServer.allClosed)
+        assertFalse(garage.connected.value)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(60))
+        assertEquals(1, FakeServer.connections.size)
+        assertTrue(FakeServer.allClosed)
+    }
+
+    @Test
+    fun `coming back to the screen connects again`() {
+        pairWithAddress()
+        garage.screenShown()
+        await { garage.connected.value }
+        garage.screenHidden()
+
+        garage.screenShown()
+        await { garage.connected.value }
+        assertEquals(2, FakeServer.connections.size)
+    }
+
+    @Test
+    fun `a dropped connection on screen comes back by itself`() {
+        pairWithAddress()
+        garage.screenShown()
+        await { garage.connected.value }
+
+        FakeServer.dropAll()
+        // Not waiting to see it disconnected first: the fake reconnects fast enough to miss that.
+        await { FakeServer.connections.size == 2 && garage.connected.value }
+        settle(3_000)
+        assertEquals(2, FakeServer.connections.size)
+        assertTrue(FakeServer.writes.isEmpty())
+    }
+
+    @Test
+    fun `a press while still connecting makes its own connection`() {
+        // The attempt that started with the screen may be stuck, so the press doesn't wait for it.
+        pairWithAddress()
+        FakeServer.holdConnection = true
+        garage.screenShown()
+        await { FakeServer.connections.size == 1 }
+
+        garage.pulseGarage()
+        assertEquals(Pulse.Sending, garage.status.value.pulse)
+        await { FakeServer.connections.size == 2 }
+        FakeServer.releaseConnection()
+
+        await { garage.status.value.pulse != Pulse.Sending }
+        assertEquals(Pulse.Sent, garage.status.value.pulse)
+        assertEquals(1, FakeServer.writes.size)
+        assertEquals("the stuck attempt is closed", 1, FakeServer.openCount)
+        settle(3_000)
+        assertEquals("and the press's connection is kept", 2, FakeServer.connections.size)
+        assertTrue(garage.connected.value)
+    }
+
+    @Test
+    fun `on screen it never asks Android to connect in the background`() {
+        // Cancelling one confused the Galaxy Watch 6, after which direct connections hung.
+        pairWithAddress()
+        FakeServer.failConnections = 4
+        garage.screenShown()
+        await { garage.connected.value }
+        FakeServer.dropAll()
+        await { FakeServer.connections.size >= 6 && garage.connected.value }
+        garage.pulseGarage()
+        await { garage.status.value.pulse != Pulse.Sending }
+
+        assertEquals(Pulse.Sent, garage.status.value.pulse)
+        assertTrue(FakeServer.autoConnects.isNotEmpty())
+        assertFalse("autoConnect was used", FakeServer.autoConnects.any { it })
+    }
+
+    @Test
+    fun `leaving the screen during a press still finishes it, then disconnects`() {
+        pairWithAddress()
+        FakeServer.holdConnection = true
+        garage.screenShown()
+        await { FakeServer.connections.size == 1 }
+        garage.pulseGarage()
+        await { FakeServer.connections.size == 2 }
+
+        garage.screenHidden()
+        FakeServer.releaseConnection()
+
+        await { garage.status.value.pulse != Pulse.Sending }
+        assertEquals(Pulse.Sent, garage.status.value.pulse)
+        assertEquals(1, FakeServer.writes.size)
+        assertTrue(FakeServer.allClosed)
+    }
+
+    @Test
+    fun `a write lost on screen is not sent again when the connection comes back`() {
+        // A second pulse would reverse the door.
+        pairWithAddress()
+        garage.screenShown()
+        await { garage.connected.value }
+        FakeServer.dropOnWrite = true
+        garage.pulseGarage()
+
+        await { garage.status.value.pulse != Pulse.Sending }
+        assertEquals(Pulse.Failed(app.getString(SharedR.string.err_lost_while_sending)), garage.status.value.pulse)
+        FakeServer.dropOnWrite = false
+        await { FakeServer.connections.size == 2 && garage.connected.value }
+        assertEquals(1, FakeServer.writes.size)
+    }
+
+    @Test
+    fun `a failed connection is tried again and sends one pulse`() {
+        pairWithAddress()
+        FakeServer.failConnections = 2
+        garage.pulseGarage()
+
+        await { garage.status.value.pulse != Pulse.Sending }
+        assertEquals(Pulse.Sent, garage.status.value.pulse)
+        assertEquals(1, FakeServer.writes.size)
+        assertEquals(3, FakeServer.connections.size)
+        assertTrue(FakeServer.allClosed)
+    }
+
+    @Test
+    fun `a connection that keeps failing gives up without sending anything`() {
+        pairWithAddress()
+        FakeServer.failConnections = Int.MAX_VALUE
+        garage.pulseGarage()
+
+        await { garage.status.value.pulse != Pulse.Sending }
+        assertEquals(Pulse.Failed(app.getString(SharedR.string.err_disconnected_status, 133)), garage.status.value.pulse)
+        assertTrue(FakeServer.writes.isEmpty())
+        assertEquals("3 tries directly, then 3 after a scan", 6, FakeServer.connections.size)
+        assertTrue(FakeServer.allClosed)
+    }
 }
 
 /** The garage's GATT service. Each read of the challenge characteristic returns fresh bytes. */
@@ -236,9 +414,21 @@ object FakeServer {
     var writeStatus = BluetoothGatt.GATT_SUCCESS
     var dropOnWrite = false
     var holdConnection = false
+    var failConnections = 0
+    val autoConnects = mutableListOf<Boolean>()
     private var held: (() -> Unit)? = null
+    private val drops = mutableMapOf<Any, () -> Unit>()
 
     val allClosed: Boolean get() = synchronized(this) { open.isEmpty() }
+    val openCount: Int get() = synchronized(this) { open.size }
+
+    /** The connections drop, as when walking out of range. */
+    fun dropAll() {
+        val current = synchronized(this) { open.mapNotNull { drops[it] } }
+        current.forEach { it() }
+    }
+
+    fun droppable(gatt: Any, drop: () -> Unit) = synchronized(this) { drops[gatt] = drop }
 
     fun opened(gatt: Any, address: String) = synchronized(this) {
         open += gatt
@@ -254,7 +444,10 @@ object FakeServer {
         writeStatus = BluetoothGatt.GATT_SUCCESS
         dropOnWrite = false
         holdConnection = false
+        failConnections = 0
+        autoConnects.clear()
         held = null
+        drops.clear()
     }
 
     /** Reports the connection as up, now or when the test says so if [holdConnection] is set. */
@@ -294,6 +487,16 @@ class FakeDevice {
         val gatt = Shadow.newInstanceOf(BluetoothGatt::class.java)
         Shadow.extract<FakeGatt>(gatt).attach(gatt, callback, handler)
         FakeServer.opened(gatt, real.address)
+        synchronized(FakeServer) { FakeServer.autoConnects += autoConnect }
+        FakeServer.droppable(gatt) {
+            handler.post { callback.onConnectionStateChange(gatt, 8, BluetoothProfile.STATE_DISCONNECTED) }
+        }
+        if (FakeServer.failConnections > 0) {
+            FakeServer.failConnections--
+            // Delayed like the real thing, which never reports this before connectGatt has returned.
+            handler.postDelayed({ callback.onConnectionStateChange(gatt, 133, BluetoothProfile.STATE_DISCONNECTED) }, 1)
+            return gatt
+        }
         FakeServer.connect {
             handler.post { callback.onConnectionStateChange(gatt, BluetoothGatt.GATT_SUCCESS, BluetoothProfile.STATE_CONNECTED) }
         }

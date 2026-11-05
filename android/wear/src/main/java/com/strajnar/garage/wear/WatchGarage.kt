@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -38,9 +39,10 @@ class GarageApp : Application() {
 val Context.garage: WatchGarage get() = (applicationContext as GarageApp).garage
 
 /**
- * Connects when the button is pressed and disconnects right after, because holding a connection
- * open like the phone app does would cost a watch too much battery. It lives in the application
- * rather than the screen, so a press still finishes if the screen goes off.
+ * Connects as soon as the button is on screen, so a press only has to send the command, and
+ * disconnects when it leaves the screen, because holding a connection open all day like the phone
+ * app does would cost a watch too much battery. It lives in the application rather than the screen,
+ * so a press still finishes if the screen goes off.
  */
 class WatchGarage(private val app: Application) {
     private val ble = GarageBle(app)
@@ -48,9 +50,49 @@ class WatchGarage(private val app: Application) {
     private val vibrator = app.getSystemService(Vibrator::class.java)
     private var pairing = Pairing.load(app)
     private var clearResult: Job? = null
+    private var onScreen = false
+    private var holder: Job? = null
 
     private val _status = MutableStateFlow(WatchStatus(paired = pairing != null))
     val status: StateFlow<WatchStatus> = _status.asStateFlow()
+
+    /** Whether a press would be sent right away. A press works without it too, just more slowly. */
+    val connected: StateFlow<Boolean> = ble.connected
+
+    fun screenShown() {
+        onScreen = true
+        holdConnection()
+    }
+
+    fun screenHidden() {
+        onScreen = false
+        holder?.cancel()
+        holder = null
+        if (_status.value.pulse != Pulse.Sending) ble.closeNow() // Otherwise the press does it when it's done.
+    }
+
+    /**
+     * Connects directly, again and again, until the screen goes off. Not with keepConnected: on the
+     * Galaxy Watch 6, cancelling its background connection left Android in a state where the next
+     * direct connection hung, and it even connected after the app had cancelled.
+     */
+    private fun holdConnection() {
+        val p = pairing ?: return
+        if (!onScreen || holder?.isActive == true) return
+        holder = scope.launch {
+            while (true) {
+                try {
+                    ble.readState(p) // Connects unless already connected.
+                    rememberAddress(p)
+                    ble.connected.first { !it }
+                } catch (e: BleException) {
+                    delay(HOLD_RETRY_MS) // Probably out of range.
+                } catch (e: SecurityException) {
+                    delay(HOLD_RETRY_MS) // The first press asks for the permission.
+                }
+            }
+        }
+    }
 
     /** Pairs using the QR code's JSON or a hex key. Returns what's wrong with [code], or null if it's valid. */
     @StringRes
@@ -62,7 +104,12 @@ class WatchGarage(private val app: Application) {
         }
         p.save(app)
         pairing = p
-        scope.launch { ble.reset() } // Forget the address of a garage we were paired with before.
+        holder?.cancel()
+        holder = null
+        scope.launch {
+            ble.reset() // Forget the address of a garage we were paired with before.
+            holdConnection()
+        }
         show(Pulse.Idle)
         return null
     }
@@ -71,6 +118,11 @@ class WatchGarage(private val app: Application) {
         val p = pairing ?: return
         if (_status.value.pulse == Pulse.Sending) return
         show(Pulse.Sending)
+        if (!ble.connected.value) {
+            // Connect for the press right away rather than wait for an attempt that may be stuck.
+            holder?.cancel()
+            holder = null
+        }
         scope.launch {
             val result = try {
                 ble.command(p, Protocol.CMD_PULSE_GARAGE, 0)
@@ -81,7 +133,7 @@ class WatchGarage(private val app: Application) {
             } catch (e: SecurityException) {
                 Pulse.Failed(app.getString(R.string.permission_missing))
             } finally {
-                ble.closeNow()
+                if (onScreen) holdConnection() else ble.closeNow()
             }
             vibrate(result)
             show(result)
@@ -120,6 +172,7 @@ class WatchGarage(private val app: Application) {
 
     private companion object {
         const val RESULT_MS = 6_000L
+        const val HOLD_RETRY_MS = 1_000L
         const val SENT_VIBRATION_MS = 150L
         val FAILED_VIBRATION_MS = longArrayOf(0, 150, 120, 150, 120, 150)
     }
