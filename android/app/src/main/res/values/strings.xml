@@ -35,10 +35,6 @@
 
     <!-- Pairing code errors -->
     <string name="pairing_invalid">Invalid pairing code</string>
-    <string name="pairing_not_garage">Not a garage pairing code</string>
-    <string name="pairing_bad_version">Unsupported pairing code version</string>
-    <string name="pairing_bad_key">Pairing code has an invalid key</string>
-    <string name="pairing_bad_key_length">Pairing code has an invalid key length</string>
 
     <!-- Background connection -->
     <string name="channel_name">Garage connection</string>
@@ -55,27 +51,4 @@
     <string name="tile_relay_description">Toggle the relay with one tap</string>
     <string name="tile_relay_preview">Relay\n–</string>
     <string name="tile_open_app">Open app</string>
-
-    <!-- Bluetooth errors. Status codes are Android GATT/ATT codes. -->
-    <string name="err_lost_while_sending">Connection lost while sending; check whether it worked</string>
-    <string name="err_no_challenge">Could not get a challenge from the garage (status %1$d)</string>
-    <string name="err_read_state">Could not read the relay state (status %1$d)</string>
-    <string name="err_no_bluetooth">This phone has no Bluetooth</string>
-    <string name="err_bluetooth_off">Bluetooth is off</string>
-    <string name="err_scan_failed">Bluetooth scan failed (error %1$d)</string>
-    <string name="err_not_found">Garage not found. Is it in range and running?</string>
-    <string name="err_auth">Rejected: authentication failed. Pair the app again.</string>
-    <string name="err_busy">The garage door is already moving</string>
-    <string name="err_hardware">The garage controller reported a hardware error</string>
-    <string name="err_version">App and server versions don\'t match (status %1$d)</string>
-    <string name="err_command">Command failed (status %1$d)</string>
-    <string name="err_disconnected_status">Disconnected from the garage (status %1$d)</string>
-    <string name="err_refused">Bluetooth refused to connect</string>
-    <string name="err_disconnected">Disconnected</string>
-    <string name="err_discovery">Service discovery failed (status %1$d)</string>
-    <string name="err_not_garage">That device is not a garage controller</string>
-    <string name="err_missing_characteristic">Garage service is missing %1$s</string>
-    <string name="err_bluetooth_busy">Bluetooth was busy</string>
-    <string name="err_no_response">The garage did not respond</string>
-    <string name="err_connect_timeout">Timed out connecting to the garage</string>
 </resources>

@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Garaža</string>
+    <string name="garage_door">Garažna vrata</string>
+    <string name="sending">Pošiljanje …</string>
+    <string name="garage_triggered">Garažna vrata sprožena</string>
+    <string name="pulse_failed">Garaže ni bilo mogoče doseči</string>
+    <string name="permission_missing">Manjka dovoljenje za Bluetooth</string>
+    <string name="permission_needed">Za dostop do garaže je potrebno dovoljenje za Bluetooth</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Vnesite ključ garaže</string>
+    <string name="pairing_key">Ključ</string>
+    <string name="pair">Seznani</string>
+    <string name="re_pair">Ponovno seznani</string>
+    <string name="cancel">Prekliči</string>
+</resources>

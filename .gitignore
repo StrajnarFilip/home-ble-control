@@ -11,6 +11,8 @@ key.txt
 /android/.kotlin/
 /android/build/
 /android/app/build/
+/android/shared/build/
+/android/wear/build/
 /android/local.properties
 /android/.idea/
 *.apk

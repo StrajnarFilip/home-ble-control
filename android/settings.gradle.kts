@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "garage-ctl"
 include(":app")
+include(":shared")
+include(":wear")

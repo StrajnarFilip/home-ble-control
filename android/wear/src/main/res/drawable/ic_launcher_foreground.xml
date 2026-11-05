@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple garage: roof and three door panels, inside the 66dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30 L80,44 L80,78 L74,78 L74,48 L34,48 L34,78 L28,78 L28,44 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M37,52 h34 v6 h-34 z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M37,61 h34 v6 h-34 z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M37,70 h34 v6 h-34 z" />
+</vector>

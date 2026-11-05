@@ -3,6 +3,7 @@ package com.strajnar.garage
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import androidx.annotation.StringRes
+import com.strajnar.garage.shared.R
 import androidx.core.content.edit
 import org.json.JSONException
 import org.json.JSONObject

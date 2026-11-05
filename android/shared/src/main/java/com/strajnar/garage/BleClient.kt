@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.ParcelUuid
 import androidx.annotation.StringRes
+import com.strajnar.garage.shared.R
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
@@ -43,8 +44,8 @@ class BleException(message: String, cause: Throwable? = null) : Exception(messag
 data class DeviceState(val relayOn: Boolean, val garageBusy: Boolean)
 
 /**
- * Talks to the garage server over BLE. [keepConnected] (run by [GarageService]) holds one
- * connection open whenever the garage is in range, so a command is just a challenge read and a
+ * Talks to the garage server over BLE. [keepConnected] (run by the phone app's GarageService) holds
+ * one connection open whenever the garage is in range, so a command is just a challenge read and a
  * write. The server pushes state changes over that connection, whoever caused them.
  */
 @SuppressLint("MissingPermission") // Callers check BLUETOOTH_SCAN/CONNECT first.
@@ -61,6 +62,9 @@ class GarageBle(private val context: Context) {
 
     /** Relay and garage state while connected, null otherwise. */
     val state: StateFlow<DeviceState?> = _state.asStateFlow()
+
+    /** The address of the garage once connected, which a scan may have found. */
+    val deviceAddress: String? get() = device?.address
 
     init {
         // When Bluetooth goes off, Android may never report the end of a pending background
@@ -421,7 +425,7 @@ private class GattLink(
     /** Discovers the garage service and subscribes to state changes. */
     suspend fun setUp() {
         try {
-            val g = gatt ?: throw BleException(text(R.string.not_connected))
+            val g = gatt ?: throw BleException(text(R.string.err_not_connected))
             // Android's default connection interval is 30-50 ms. Keep it short for the whole
             // connection: discovery and every command take several round trips.
             g.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
@@ -447,13 +451,13 @@ private class GattLink(
     suspend fun awaitClosed() = closedSignal.await()
 
     suspend fun read(uuid: UUID): Pair<Int, ByteArray?> {
-        val g = gatt ?: throw BleException(text(R.string.not_connected))
+        val g = gatt ?: throw BleException(text(R.string.err_not_connected))
         val c = chars.getValue(uuid)
         return operation { g.readCharacteristic(c) }
     }
 
     suspend fun write(uuid: UUID, value: ByteArray): Int {
-        val g = gatt ?: throw BleException(text(R.string.not_connected))
+        val g = gatt ?: throw BleException(text(R.string.err_not_connected))
         val c = chars.getValue(uuid)
         return operation {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -481,7 +485,7 @@ private class GattLink(
 
     /** Runs one GATT operation; [start] returns false if Android refused to start it. */
     private suspend fun operation(start: () -> Boolean): Pair<Int, ByteArray?> = opLock.withLock {
-        if (closed) throw BleException(text(R.string.not_connected))
+        if (closed) throw BleException(text(R.string.err_not_connected))
         val result = CompletableDeferred<Pair<Int, ByteArray?>>()
         pending = result
         try {
@@ -496,7 +500,7 @@ private class GattLink(
 
     private fun translate(e: Throwable): Throwable = when (e) {
         is TimeoutCancellationException -> BleException(text(R.string.err_connect_timeout), e)
-        is SecurityException -> BleException(text(R.string.permission_missing), e)
+        is SecurityException -> BleException(text(R.string.err_permission_missing), e)
         else -> e
     }
 

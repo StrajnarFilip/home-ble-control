@@ -13,6 +13,8 @@ You can control it three ways:
 2. **REST API**: same port; see below.
 3. **Bluetooth LE**: the Android app in `android/` and its home-screen widget. Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
 
+A [Wear OS watch app](#wear-os-app-androidwear) can also trigger the garage door over Bluetooth LE.
+
 The only required configuration is the AES key.
 
 ## Quickstart: fresh Ubuntu on a Raspberry Pi
@@ -269,3 +271,35 @@ Rejected writes return an ATT error:
 | `0x80` | authentication failed |
 | `0x81` | garage pulse already running |
 | `0x82` | GPIO error |
+
+## Wear OS app (`android/wear/`)
+
+One **Garage door** button that fills the watch screen and sends one pulse. The watch buzzes once when the pulse was sent and three times when it failed, so you don't have to look. It requires Wear OS 4 or newer and was written for the Galaxy Watch 6 Classic.
+
+The watch talks to the garage over Bluetooth LE by itself, so the phone can stay at home. It connects when you press the button and disconnects right after, which saves battery but makes a press slower than on the phone. It needs the server to go on advertising while a phone is connected (see [BLE protocol](#ble-protocol)).
+
+To install it, connect to the watch over Wi-Fi from a computer on the same network:
+
+1. On the watch, open *Settings › About watch › Software* and tap **Software version** until developer mode turns on.
+2. In *Settings › Developer options*, turn on **ADB debugging** and **Wireless debugging**, then choose **Pair new device**.
+3. On the computer, pair, build and install. The ports for `adb pair` and `adb connect` are different, and the watch shows both.
+
+   ```sh
+   adb pair <watch-ip>:<pairing-port>     # asks for the code on the watch
+   adb connect <watch-ip>:<debug-port>
+   cd android
+   ./gradlew :wear:assembleDebug
+   adb -s <watch-ip>:<debug-port> install wear/build/outputs/apk/debug/wear-debug.apk
+   ```
+
+A watch can't scan the QR code, so give it the key instead. Open **Garage** on the watch and tap the **Key** field. With the keyboard open, send the key from the computer, then confirm it on the keyboard or tap **Pair**:
+
+```sh
+adb -s <watch-ip>:<debug-port> shell input text "$(curl -s http://<pi>:8080/api/pairing | jq -r .key)"
+```
+
+You can also type the key by hand, or the JSON from `/api/pairing`, which includes the Bluetooth address.
+
+The first press asks for the Nearby devices permission and then sends the pulse. If the pairing has no address, the watch scans for the garage and remembers the address for later presses. To pair again, for example after the key changed, long-press the button.
+
+The key is stored in app-private storage and is excluded from backups and device transfers.

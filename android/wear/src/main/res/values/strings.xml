@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Garage</string>
+    <string name="garage_door">Garage door</string>
+    <string name="sending">Sending…</string>
+    <string name="garage_triggered">Garage door triggered</string>
+    <string name="pulse_failed">Could not reach the garage</string>
+    <string name="permission_missing">Bluetooth permission missing</string>
+    <string name="permission_needed">Bluetooth permission is needed to reach the garage</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Enter the garage key</string>
+    <string name="pairing_key">Key</string>
+    <string name="pair">Pair</string>
+    <string name="re_pair">Re-pair</string>
+    <string name="cancel">Cancel</string>
+</resources>
