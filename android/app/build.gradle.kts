@@ -33,6 +33,9 @@ android {
     // Pairing.parse calls BluetoothAdapter, which unit tests only have as a stub.
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // For Robolectric, which also uses JDK internals to create file descriptors.
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all { it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }
     }
 }
 
@@ -46,7 +49,10 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.zxing.android.embedded)
+    implementation(libs.androidx.car.app)
 
     testImplementation(libs.junit)
     testImplementation(libs.json) // android.jar's org.json is a stub in unit tests.
+    testImplementation(libs.androidx.car.app.testing)
+    testImplementation(libs.robolectric) // The car screen and host validator need real Android classes.
 }

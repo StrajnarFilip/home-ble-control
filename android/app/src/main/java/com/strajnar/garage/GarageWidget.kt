@@ -97,7 +97,7 @@ private fun statusText(context: Context, s: GarageStatus): String = when {
 }
 
 /** Like [statusText], but shorter and without news about the other tile's control. */
-private fun tileText(context: Context, s: GarageStatus, control: Control, ready: String): String {
+internal fun tileText(context: Context, s: GarageStatus, control: Control, ready: String): String {
     val mine = s.about == null || s.about == control
     return when {
         !s.paired || !hasBlePermissions(context) -> context.getString(R.string.tile_open_app)

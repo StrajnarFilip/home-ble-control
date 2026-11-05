@@ -56,6 +56,9 @@
     <string name="tile_relay_preview">Rele\n–</string>
     <string name="tile_open_app">Odpri aplikacijo</string>
 
+    <!-- Android Auto -->
+    <string name="car_set_up_on_phone">Nastavite na telefonu</string>
+
     <!-- Bluetooth errors -->
     <string name="err_lost_while_sending">Povezava se je med pošiljanjem prekinila; preverite, ali je ukaz uspel</string>
     <string name="err_no_challenge">Od garaže ni bilo mogoče dobiti izziva (koda %1$d)</string>

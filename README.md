@@ -11,7 +11,7 @@ You can control it three ways:
 
 1. **Web UI**: `http://<pi>:8080`. It also shows the pairing QR code.
 2. **REST API**: same port; see below.
-3. **Bluetooth LE**: the Android app in `android/` and its home-screen widget. Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
+3. **Bluetooth LE**: the Android app in `android/`, its home-screen widget and [Android Auto](#android-auto). Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
 
 The only required configuration is the AES key.
 
@@ -244,6 +244,26 @@ To make every tap instant, a foreground service keeps the connection open whenev
 Relay changes made by anyone (another phone, the web UI, the REST API) show up in the app and the widget straight away.
 
 The key is stored in app-private storage and is excluded from backups and device transfers. Re-pair on a new phone.
+
+### Android Auto
+
+The car screen has one **Garage door** button, which sends one pulse. The line below it shows whether the garage is ready, and errors also appear as a short message. Pairing and the Bluetooth permission are set up in the phone app.
+
+Android Auto is optional. The app needs no extra permissions for it and works the same on a phone without it. Android Auto is the only app that can open the car screen: the service refuses other apps, on debug builds too.
+
+**A build installed with `adb install` doesn't appear in a real car.** Android Auto only lists apps of this type if they were installed from a trusted source such as Google Play, and [its *Unknown sources* option doesn't cover them](https://developer.android.com/training/cars/testing#unknown-sources). To use the button in a car, install the app through a Play Console internal test track or Internal App Sharing. Neither needs a Play review, but both need a Play developer account and a signed release.
+
+To try the screen without a car, use the [Desktop Head Unit](https://developer.android.com/training/cars/testing/dhu) with the phone connected over USB:
+
+1. In the Android Auto settings, tap **Version and permission info** 10 times, then choose **Start head unit server** from the overflow menu.
+2. On the computer, install the DHU with the SDK Manager and run:
+
+   ```sh
+   adb forward tcp:5277 tcp:5277
+   "$ANDROID_HOME/extras/google/auto/desktop-head-unit"
+   ```
+
+As of Android Auto 17.9, the DHU is [reported](https://github.com/mdc159/sierra-auto/issues/36) to skip the install-source check, so an `adb install` build opening there doesn't mean it will appear in a car.
 
 ## BLE protocol
 

@@ -56,6 +56,9 @@
     <string name="tile_relay_preview">Relay\n–</string>
     <string name="tile_open_app">Open app</string>
 
+    <!-- Android Auto -->
+    <string name="car_set_up_on_phone">Set up on your phone</string>
+
     <!-- Bluetooth errors. Status codes are Android GATT/ATT codes. -->
     <string name="err_lost_while_sending">Connection lost while sending; check whether it worked</string>
     <string name="err_no_challenge">Could not get a challenge from the garage (status %1$d)</string>

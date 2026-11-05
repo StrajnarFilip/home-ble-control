@@ -49,8 +49,8 @@ fun hasBlePermissions(context: Context) =
     BLE_PERMISSIONS.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
 
 /**
- * App-wide garage state, shared by the screen, [GarageService] and [GarageWidget]. It lives as
- * long as the process, which the foreground service keeps alive.
+ * App-wide garage state, shared by the screen, [GarageService], [GarageWidget] and the Android
+ * Auto screen. It lives as long as the process, which the foreground service keeps alive.
  */
 class Garage(private val app: Application) {
     val ble = GarageBle(app)

@@ -42,6 +42,24 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- Android Auto. Nothing here requires it: without Android Auto this is never bound.
+             Exported without a permission because createHostValidator() decides who may connect. -->
+        <service
+            android:name=".GarageCarAppService"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.IOT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
