@@ -9,7 +9,7 @@ Both pins can be [changed with environment variables](#gpio-pins). Relays are as
 
 You can control it three ways:
 
-1. **Web UI**: `http://<pi>:8080`. It also shows the pairing QR code.
+1. **Web UI**: `http://<pi>:8080`. It also shows the pairing QR code. It's in English and Slovenian: it follows the browser's language until you pick one with the EN/SL switch at the top, which it then remembers.
 2. **REST API**: same port; see below.
 3. **Bluetooth LE**: the Android app in `android/` and its home-screen widget. Every command is authenticated with the shared AES key and protected against replay. Several phones can be connected at once.
 

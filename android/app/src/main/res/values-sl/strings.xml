@@ -4,7 +4,7 @@
 
     <!-- Main screen -->
     <string name="not_paired_title">Še ni seznanjeno</string>
-    <string name="not_paired_body">Odprite spletno stran krmilnika garaže (http://&lt;naslov-pi&gt;:8080) in skenirajte njeno kodo QR ali prilepite ključ iz razdelka »Pairing details«.</string>
+    <string name="not_paired_body">Odprite spletno stran krmilnika garaže (http://&lt;naslov-pi&gt;:8080) in skenirajte njeno kodo QR ali prilepite ključ iz razdelka »Podrobnosti seznanjanja«.</string>
     <string name="scan_pairing_qr">Skeniraj kodo QR za seznanjanje</string>
     <string name="scan_prompt">Skenirajte kodo QR na spletni strani garaže</string>
     <string name="pairing_key">Ključ</string>

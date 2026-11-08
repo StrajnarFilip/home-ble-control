@@ -17,6 +17,7 @@
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width: 440px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
   section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
@@ -56,23 +57,30 @@
 </head>
 <body>
 <main>
+  <!-- Text comes from the strings table in the script, in the chosen language. -->
   <header>
-    <h1>Garage control</h1>
-    <p class="hint">Raspberry Pi<span id="pins"></span></p>
+    <div>
+      <h1 data-i18n="title"></h1>
+      <p class="hint">Raspberry Pi<span id="pins"></span></p>
+    </div>
+    <div class="seg" role="group" data-i18n-label="language">
+      <button type="button" id="lang-en" lang="en" title="English" aria-label="English">EN</button>
+      <button type="button" id="lang-sl" lang="sl" title="Slovenščina" aria-label="Slovenščina">SL</button>
+    </div>
   </header>
 
   <section>
-    <h2>Garage door</h2>
-    <div class="state"><span class="dot" id="gdot"></span><span id="gstate">Idle</span></div>
-    <button id="pulse">Open / close</button>
+    <h2 data-i18n="garageDoor"></h2>
+    <div class="state"><span class="dot" id="gdot"></span><span id="gstate"></span></div>
+    <button id="pulse" data-i18n="openClose"></button>
   </section>
 
   <section>
-    <h2>Relay</h2>
-    <div class="state"><span class="dot" id="rdot"></span><span id="rstate">…</span></div>
+    <h2 data-i18n="relay"></h2>
+    <div class="state"><span class="dot" id="rdot"></span><span id="rstate"></span></div>
     <div class="row">
-      <button id="on">On</button>
-      <button id="off" class="secondary">Off</button>
+      <button id="on" data-i18n="turnOn"></button>
+      <button id="off" class="secondary" data-i18n="turnOff"></button>
     </div>
   </section>
 
@@ -80,43 +88,199 @@
 
   <section>
     <div class="head">
-      <h2>Garage history</h2>
-      <div class="seg" role="group" aria-label="Show times in">
-        <button type="button" id="tz-local" aria-pressed="true">Local</button>
-        <button type="button" id="tz-utc" aria-pressed="false">UTC</button>
-        <button type="button" id="tz-ago" aria-pressed="false">Ago</button>
-        <button type="button" id="tz-gap" aria-pressed="false">Gap</button>
+      <h2 data-i18n="history"></h2>
+      <div class="seg" role="group" data-i18n-label="showTimesIn">
+        <button type="button" id="tz-local" aria-pressed="true" data-i18n="local"></button>
+        <button type="button" id="tz-utc" aria-pressed="false" data-i18n="utc"></button>
+        <button type="button" id="tz-ago" aria-pressed="false" data-i18n="ago"></button>
+        <button type="button" id="tz-gap" aria-pressed="false" data-i18n="gap"></button>
       </div>
-      <p class="hint" id="gap-hint" hidden>Time since the previous successful pulse, to within a second.</p>
+      <p class="hint" id="gap-hint" data-i18n="gapHint" hidden></p>
     </div>
-    <h3 id="valid-title">Pulses</h3>
+    <h3 id="valid-title"></h3>
     <ol class="history" id="valid"></ol>
     <p class="hint" id="valid-empty"></p>
-    <h3 id="rejected-title">Rejected or failed</h3>
+    <h3 id="rejected-title"></h3>
     <ol class="history" id="rejected"></ol>
     <p class="hint" id="rejected-empty"></p>
   </section>
 
   <section>
-    <h2>Pair Android app</h2>
-    <img class="qr" src="/api/qr.png" alt="Pairing QR code" width="280" height="280">
-    <p class="hint">Open the app and tap <b>Scan pairing QR</b>. The code contains the secret key, so keep this page private.</p>
+    <h2 data-i18n="pairTitle"></h2>
+    <img class="qr" src="/api/qr.png" data-i18n-alt="qrAlt" alt="" width="280" height="280">
+    <p class="hint" data-i18n-html="pairHint"></p>
     <details>
-      <summary>Pairing details</summary>
-      <p class="hint">Bluetooth address: <code id="addr">…</code></p>
-      <p class="hint">Key, to paste into the app instead of scanning: <code id="key">…</code></p>
+      <summary data-i18n="pairingDetails"></summary>
+      <p class="hint"><span data-i18n="addrLabel"></span> <code id="addr">…</code></p>
+      <p class="hint"><span data-i18n="keyLabel"></span> <code id="key">…</code></p>
     </details>
   </section>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
-const msg = (text, err) => { $("msg").textContent = text; $("msg").className = err ? "err" : ""; };
 
+// Every piece of text on the page, in English and Slovenian. The app's button
+// is named as the app names it in that language (pairHint).
+const strings = {
+  en: {
+    title: "Garage control",
+    language: "Language",
+    pins: (garage, relay) => ` · GPIO ${garage} garage · GPIO ${relay} relay`,
+    garageDoor: "Garage door",
+    idle: "Idle",
+    pulsing: "Pulsing…",
+    openClose: "Open / close",
+    relay: "Relay",
+    relayOn: "On",
+    relayOff: "Off",
+    turnOn: "On",
+    turnOff: "Off",
+    garagePulsed: "Garage pulsed",
+    relaySwitchedOn: "Relay on",
+    relaySwitchedOff: "Relay off",
+    failed: (error) => "Failed: " + error,
+    history: "Garage history",
+    showTimesIn: "Show times in",
+    local: "Local",
+    utc: "UTC",
+    ago: "Ago",
+    gap: "Gap",
+    gapHint: "Time since the previous successful pulse, to within a second.",
+    pulses: "Pulses",
+    rejected: "Rejected or failed",
+    last: (title, n) => `${title} (last ${n})`,
+    noneYet: "None since the server started.",
+    notRecorded: "Not recorded (turned off on the server).",
+    previousPulse: (time) => "Previous pulse: " + time,
+    noPreviousPulse: "No earlier pulse in the list",
+    bluetooth: "Bluetooth",
+    web: "Web",
+    reasons: {
+      "bad-tag": "Wrong key or tampered",
+      "expired": "Challenge expired",
+      "no-challenge": "No challenge read",
+      "bad-length": "Malformed",
+      "unknown-command": "Unknown command",
+      "busy": "Already pulsing",
+      "gpio-error": "GPIO error",
+      "other": "Other",
+    },
+    pairTitle: "Pair Android app",
+    qrAlt: "Pairing QR code",
+    pairHint: "Open the app and tap <b>Scan pairing QR</b>. The code contains the secret key, so keep this page private.",
+    pairingDetails: "Pairing details",
+    addrLabel: "Bluetooth address:",
+    keyLabel: "Key, to paste into the app instead of scanning:",
+    noBluetooth: "Bluetooth not running",
+  },
+  sl: {
+    title: "Upravljanje garaže",
+    language: "Jezik",
+    pins: (garage, relay) => ` · GPIO ${garage} garaža · GPIO ${relay} rele`,
+    garageDoor: "Garažna vrata",
+    idle: "V mirovanju",
+    pulsing: "Sprožanje …",
+    openClose: "Odpri / zapri",
+    relay: "Rele",
+    relayOn: "Vklopljen",
+    relayOff: "Izklopljen",
+    turnOn: "Vklopi",
+    turnOff: "Izklopi",
+    garagePulsed: "Garažna vrata sprožena",
+    relaySwitchedOn: "Rele vklopljen",
+    relaySwitchedOff: "Rele izklopljen",
+    failed: (error) => "Napaka: " + error,
+    history: "Zgodovina garaže",
+    showTimesIn: "Prikaz časov",
+    local: "Lokalno",
+    utc: "UTC",
+    ago: "Relativno",
+    gap: "Razmik",
+    gapHint: "Čas od prejšnje uspešne sprožitve, na sekundo natančno.",
+    pulses: "Sprožitve",
+    rejected: "Zavrnjene ali neuspešne",
+    // Slovenian has four plural forms: zadnja 1, zadnji 2, zadnje 3, zadnjih 5.
+    last: (title, n) =>
+      `${title} (${{ one: "zadnja", two: "zadnji", few: "zadnje" }[fmt.plural.select(n)] || "zadnjih"} ${n})`,
+    noneYet: "Od zagona strežnika še nobene.",
+    notRecorded: "Se ne beleži (izklopljeno na strežniku).",
+    previousPulse: (time) => "Prejšnja sprožitev: " + time,
+    noPreviousPulse: "Na seznamu ni prejšnje sprožitve",
+    bluetooth: "Bluetooth",
+    web: "Splet",
+    reasons: {
+      "bad-tag": "Napačen ključ ali spremenjen ukaz",
+      "expired": "Izziv je potekel",
+      "no-challenge": "Izziv ni bil prebran",
+      "bad-length": "Neveljavna oblika",
+      "unknown-command": "Neznan ukaz",
+      "busy": "Sprožanje že poteka",
+      "gpio-error": "Napaka GPIO",
+      "other": "Drugo",
+    },
+    pairTitle: "Seznanjanje aplikacije za Android",
+    qrAlt: "Koda QR za seznanjanje",
+    pairHint: "Odprite aplikacijo in tapnite <b>Skeniraj kodo QR za seznanjanje</b>. Koda vsebuje skrivni ključ, zato te strani ne delite z drugimi.",
+    pairingDetails: "Podrobnosti seznanjanja",
+    addrLabel: "Naslov Bluetooth:",
+    keyLabel: "Ključ, ki ga lahko namesto skeniranja prilepite v aplikacijo:",
+    noBluetooth: "Bluetooth ne deluje",
+  },
+};
+const langs = Object.keys(strings);
+
+// The page follows the browser's languages until one is picked with the EN/SL
+// switch, which is remembered in localStorage.
+const browserLangs = navigator.languages || [navigator.language || ""];
+const baseLang = (tag) => tag.split("-")[0].toLowerCase();
+let lang = browserLangs.map(baseLang).find((l) => langs.includes(l)) || "en";
+try {
+  const saved = localStorage.getItem("lang");
+  if (langs.includes(saved)) lang = saved;
+} catch (_) { /* storage blocked */ }
+
+function t(key, ...args) {
+  const s = strings[lang][key];
+  return typeof s === "function" ? s(...args) : s;
+}
+const reasonLabel = (reason) => strings[lang].reasons[reason] || reason;
+
+// Dates, "5 minutes ago" and durations are formatted for the chosen language,
+// in the browser's own variant of it when it has one (en-GB, not en-US).
+let fmt;
+function setFormats() {
+  const locale = browserLangs.find((tag) => baseLang(tag) === lang) || lang;
+  const unit = (u) => new Intl.NumberFormat(locale, { style: "unit", unit: u, unitDisplay: "long" });
+  fmt = {
+    date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "long" }),
+    relative: new Intl.RelativeTimeFormat(locale, { numeric: "always" }),
+    plural: new Intl.PluralRules(locale),
+    units: { day: unit("day"), hour: unit("hour"), minute: unit("minute"), second: unit("second") },
+  };
+}
+
+// The status line is kept as a function so it can be redrawn in a new language.
+let msgText = () => "", msgErr = false;
+function msg(text, err) {
+  msgText = text;
+  msgErr = !!err;
+  drawMsg();
+}
+function drawMsg() {
+  $("msg").textContent = msgText();
+  $("msg").className = msgErr ? "err" : "";
+}
+
+let state = null;
 function render(s) {
-  $("rdot").classList.toggle("on", s.relay);
-  $("rstate").textContent = s.relay ? "On" : "Off";
-  $("gdot").classList.toggle("on", s.garageBusy);
-  $("gstate").textContent = s.garageBusy ? "Pulsing…" : "Idle";
+  state = s;
+  drawState();
+}
+function drawState() {
+  $("rdot").classList.toggle("on", !!state?.relay);
+  $("rstate").textContent = state ? t(state.relay ? "relayOn" : "relayOff") : "…";
+  $("gdot").classList.toggle("on", !!state?.garageBusy);
+  $("gstate").textContent = t(state?.garageBusy ? "pulsing" : "idle");
 }
 
 // History times arrive in UTC (e.g. 2026-11-08T13:03:12Z). Local mode converts
@@ -130,7 +294,7 @@ try {
   if (timeModes.includes(saved)) timeMode = saved;
 } catch (_) { /* storage blocked */ }
 
-const localTime = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "long" });
+const localTime = (iso) => fmt.date.format(new Date(iso));
 
 // "Ago" is measured against the Pi's clock (from each response's Date header),
 // not this browser's, so it stays right even when the Pi's clock is off.
@@ -142,26 +306,25 @@ function trackServerClock(response) {
   if (Math.abs(offset - clockOffset) > 2000) clockOffset = offset; // Ignore jitter, or "ago" would tick backwards.
 }
 
-const relative = new Intl.RelativeTimeFormat(document.documentElement.lang || undefined, { numeric: "always" });
 function ago(iso) {
   const s = Math.max(0, Math.floor((Date.now() + clockOffset - Date.parse(iso)) / 1000));
-  if (s < 60) return relative.format(-s, "second");
-  if (s < 3600) return relative.format(-Math.floor(s / 60), "minute");
-  if (s < 86400) return relative.format(-Math.floor(s / 3600), "hour");
-  return relative.format(-Math.floor(s / 86400), "day");
+  if (s < 60) return fmt.relative.format(-s, "second");
+  if (s < 3600) return fmt.relative.format(-Math.floor(s / 60), "minute");
+  if (s < 86400) return fmt.relative.format(-Math.floor(s / 3600), "hour");
+  return fmt.relative.format(-Math.floor(s / 86400), "day");
 }
 
 // "2 minutes 5 seconds": the two largest units, stopping at the first zero.
 function duration(s) {
   const parts = [];
-  for (const [name, size] of [["day", 86400], ["hour", 3600], ["minute", 60], ["second", 1]]) {
+  for (const [unit, size] of [["day", 86400], ["hour", 3600], ["minute", 60], ["second", 1]]) {
     const n = Math.floor(s / size);
     s -= n * size;
-    if (n > 0) parts.push(`${n} ${name}${n === 1 ? "" : "s"}`);
+    if (n > 0) parts.push(fmt.units[unit].format(n));
     else if (parts.length) break;
     if (parts.length === 2) break;
   }
-  return parts.join(" ") || "0 seconds";
+  return parts.join(" ") || fmt.units.second.format(0);
 }
 
 // Both times are whole seconds from the Pi's clock, so the gap is exact to
@@ -184,28 +347,19 @@ function showTime(el) {
     el.title = exact;
   } else if (timeMode === "gap") {
     el.textContent = gap(el);
-    el.title = el.dataset.prev ? exact + "\nPrevious pulse: " + localTime(el.dataset.prev) : exact + "\nNo earlier pulse in the list";
+    el.title = exact + "\n" + (el.dataset.prev ? t("previousPulse", localTime(el.dataset.prev)) : t("noPreviousPulse"));
   } else {
     el.textContent = localTime(iso);
     el.title = iso;
   }
 }
 // Rejected Bluetooth writes may not come from the app, so "Bluetooth", not "App".
-const sourceLabel = (a) => (a.source === "ble" ? "Bluetooth" : "Web" + (a.client ? " · " + a.client : ""));
-const reasonLabels = {
-  "bad-tag": "Wrong key or tampered",
-  "expired": "Challenge expired",
-  "no-challenge": "No challenge read",
-  "bad-length": "Malformed",
-  "unknown-command": "Unknown command",
-  "busy": "Already pulsing",
-  "gpio-error": "GPIO error",
-};
-const rejectedLabel = (r) => (reasonLabels[r.reason] || r.reason) + " · " + sourceLabel(r);
+const sourceLabel = (a) => (a.source === "ble" ? t("bluetooth") : t("web") + (a.client ? " · " + a.client : ""));
+const rejectedLabel = (r) => reasonLabel(r.reason) + " · " + sourceLabel(r);
 
 // prev(item, i) is the time of the successful pulse before item, for Gap mode.
 function fillList(id, title, items, limit, label, prev) {
-  $(id + "-title").textContent = limit > 0 ? `${title} (last ${limit})` : title;
+  $(id + "-title").textContent = limit > 0 ? t("last", title, limit) : title;
   $(id).replaceChildren(...items.map((item, i) => {
     const li = document.createElement("li");
     const when = document.createElement("time");
@@ -218,20 +372,25 @@ function fillList(id, title, items, limit, label, prev) {
     li.append(when, what);
     return li;
   }));
-  $(id + "-empty").textContent = limit > 0 ? "None since the server started." : "Not recorded (turned off on the server).";
+  $(id + "-empty").textContent = t(limit > 0 ? "noneYet" : "notRecorded");
   $(id + "-empty").hidden = items.length > 0;
 }
 
-let lastHistory = "";
+let historyData = null, lastHistory = "";
 function renderHistory(text) {
   if (text === lastHistory) return; // Unchanged: don't rebuild the lists every poll.
   lastHistory = text;
-  const h = JSON.parse(text);
+  historyData = JSON.parse(text);
+  drawHistory();
+}
+function drawHistory() {
+  const h = historyData;
+  if (!h) return;
   // Both lists are newest first. A pulse's previous pulse is the next one down;
   // for a rejected request it is the newest pulse at or before it (a request
   // refused as busy has the same second as the pulse it ran into).
-  fillList("valid", "Pulses", h.valid, h.validLimit, sourceLabel, (v, i) => h.valid[i + 1]?.time);
-  fillList("rejected", "Rejected or failed", h.rejected, h.rejectedLimit, rejectedLabel,
+  fillList("valid", t("pulses"), h.valid, h.validLimit, sourceLabel, (v, i) => h.valid[i + 1]?.time);
+  fillList("rejected", t("rejected"), h.rejected, h.rejectedLimit, rejectedLabel,
     (r) => h.valid.find((v) => Date.parse(v.time) <= Date.parse(r.time))?.time);
 }
 
@@ -241,6 +400,37 @@ function showTimes(mode) {
   for (const m of timeModes) $("tz-" + m).setAttribute("aria-pressed", String(m === mode));
   $("gap-hint").hidden = mode !== "gap";
   document.querySelectorAll(".history time").forEach(showTime);
+}
+
+let pins = null, pairing = null;
+function drawInfo() {
+  if (pins) $("pins").textContent = t("pins", pins.garage, pins.relay);
+  if (pairing) {
+    $("addr").textContent = pairing.addr || t("noBluetooth");
+    $("key").textContent = pairing.key;
+  }
+}
+
+// Puts every piece of text on the page in lang, including what came from the server.
+function applyLang() {
+  setFormats();
+  document.documentElement.lang = lang;
+  document.title = t("title");
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll("[data-i18n-label]")) el.setAttribute("aria-label", t(el.dataset.i18nLabel));
+  for (const el of document.querySelectorAll("[data-i18n-alt]")) el.alt = t(el.dataset.i18nAlt);
+  for (const l of langs) $("lang-" + l).setAttribute("aria-pressed", String(l === lang));
+  drawState();
+  drawHistory();
+  drawInfo();
+  drawMsg();
+}
+
+function setLang(l) {
+  lang = l;
+  try { localStorage.setItem("lang", l); } catch (_) { /* storage blocked */ }
+  applyLang();
 }
 
 async function refresh() {
@@ -254,7 +444,7 @@ async function refresh() {
   } catch (_) { /* server unreachable; keep last state */ }
 }
 
-async function post(url, body, okText) {
+async function post(url, body, okKey) {
   const buttons = document.querySelectorAll("button");
   buttons.forEach((b) => (b.disabled = true));
   try {
@@ -264,28 +454,37 @@ async function post(url, body, okText) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || r.statusText);
-    msg(okText);
+    if (!r.ok) {
+      // The server's errors are in English. The one a tap here can cause in
+      // normal use, a pulse while one is running (409), is shown translated.
+      const error = data.error || r.statusText;
+      msg(() => t("failed", r.status === 409 ? reasonLabel("busy") : error), true);
+    } else {
+      msg(() => t(okKey));
+    }
   } catch (e) {
-    msg("Failed: " + e.message, true);
+    msg(() => t("failed", e.message), true);
   } finally {
     buttons.forEach((b) => (b.disabled = false));
     refresh();
   }
 }
 
+for (const l of langs) $("lang-" + l).onclick = () => setLang(l);
 for (const m of timeModes) $("tz-" + m).onclick = () => showTimes(m);
+applyLang();
 showTimes(timeMode);
-$("pulse").onclick = () => post("/api/garage/pulse", null, "Garage pulsed");
-$("on").onclick = () => post("/api/relay", { on: true }, "Relay on");
-$("off").onclick = () => post("/api/relay", { on: false }, "Relay off");
+$("pulse").onclick = () => post("/api/garage/pulse", null, "garagePulsed");
+$("on").onclick = () => post("/api/relay", { on: true }, "relaySwitchedOn");
+$("off").onclick = () => post("/api/relay", { on: false }, "relaySwitchedOff");
 
 fetch("/api/pins").then((r) => r.json()).then((p) => {
-  $("pins").textContent = ` · GPIO ${p.garage} garage · GPIO ${p.relay} relay`;
+  pins = p;
+  drawInfo();
 });
 fetch("/api/pairing").then((r) => r.json()).then((p) => {
-  $("addr").textContent = p.addr || "Bluetooth not running";
-  $("key").textContent = p.key;
+  pairing = p;
+  drawInfo();
 });
 refresh();
 setInterval(refresh, 2000);
