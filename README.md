@@ -171,7 +171,14 @@ The server keeps two lists in memory. The web UI shows them, and `GET /api/histo
   - a pulse that hit a GPIO error;
   - a Bluetooth command write that failed authentication or validation. These are recorded whatever command they claim to be, because until the tag checks out nothing in the write can be trusted. They shouldn't happen in normal use: the app reads a fresh challenge right before every command and never retries a rejected write.
 
-Each entry says whether it came over Bluetooth or from the web UI / REST API, plus the client's IP for the latter. Relay on/off changes aren't recorded. The lists are separate, so a flood of rejected writes can't push real pulses out. Times are stored in UTC, to the second. The web UI has three ways to show them: **Local** (your browser's time zone), **UTC** (exactly as the server sent them) and **Ago** (for example "5 minutes ago", updated every second). Hovering a time shows the exact time. Ago is measured against the Pi's own clock, so it stays right even when that clock is off, unless the clock changed after the event, as it does when the Pi syncs its time after booting.
+Each entry says whether it came over Bluetooth or from the web UI / REST API, plus the client's IP for the latter. Relay on/off changes aren't recorded. The lists are separate, so a flood of rejected writes can't push real pulses out. Times are stored in UTC, to the second. The web UI has four ways to show them:
+
+- **Local:** your browser's time zone.
+- **UTC:** exactly as the server sent them.
+- **Ago:** for example "5 minutes ago", updated every second.
+- **Gap:** the time since the previous successful pulse, for example "+5 s · 5 seconds". The door doesn't report its position, but a short gap tells you the second pulse probably caught it still moving. For a rejected request, it's the time since the last pulse before it.
+
+Hovering a time shows the exact time. Ago and Gap are measured against the Pi's own clock, so they stay right even when that clock is off, unless the clock changed in between, as it does when the Pi syncs its time after booting. Times are kept to the second, so gaps are accurate to within a second.
 
 Each list has its own size, set the same way as the [pins](#gpio-pins). `0` turns a list off, and anything that isn't a whole number of 0 or more stops the server from starting.
 
