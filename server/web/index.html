@@ -36,7 +36,8 @@
   code { font-size: 13px; overflow-wrap: anywhere; }
   #key { user-select: all; }
   details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
-  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px;
+          margin-bottom: 12px; }
   .head h2 { margin: 0; }
   h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
   .head + h3 { margin-top: 0; }
@@ -82,6 +83,7 @@
       <div class="seg" role="group" aria-label="Show times in">
         <button type="button" id="tz-local" aria-pressed="true">Local</button>
         <button type="button" id="tz-utc" aria-pressed="false">UTC</button>
+        <button type="button" id="tz-ago" aria-pressed="false">Ago</button>
       </div>
     </div>
     <h3 id="valid-title">Pulses</h3>
@@ -115,11 +117,42 @@ function render(s) {
 }
 
 // History times arrive in UTC (e.g. 2026-11-08T13:03:12Z). Local mode converts
-// them to this browser's time zone; UTC mode shows them exactly as received.
-let utc = false;
-try { utc = localStorage.getItem("times") === "utc"; } catch (_) { /* storage blocked */ }
+// them to this browser's time zone, UTC mode shows them exactly as received and
+// Ago mode shows how long ago they were ("5 minutes ago").
+const timeModes = ["local", "utc", "ago"];
+let timeMode = "local";
+try {
+  const saved = localStorage.getItem("times");
+  if (timeModes.includes(saved)) timeMode = saved;
+} catch (_) { /* storage blocked */ }
 
 const localTime = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "long" });
+
+// "Ago" is measured against the Pi's clock (from each response's Date header),
+// not this browser's, so it stays right even when the Pi's clock is off.
+let clockOffset = 0; // Pi clock minus browser clock, in ms.
+function trackServerClock(response) {
+  const serverNow = Date.parse(response.headers.get("Date"));
+  if (Number.isNaN(serverNow)) return;
+  const offset = serverNow + 500 - Date.now(); // Date has whole seconds: aim for the middle.
+  if (Math.abs(offset - clockOffset) > 2000) clockOffset = offset; // Ignore jitter, or "ago" would tick backwards.
+}
+
+const relative = new Intl.RelativeTimeFormat(document.documentElement.lang || undefined, { numeric: "always" });
+function ago(iso) {
+  const s = Math.max(0, Math.floor((Date.now() + clockOffset - Date.parse(iso)) / 1000));
+  if (s < 60) return relative.format(-s, "second");
+  if (s < 3600) return relative.format(-Math.floor(s / 60), "minute");
+  if (s < 86400) return relative.format(-Math.floor(s / 3600), "hour");
+  return relative.format(-Math.floor(s / 86400), "day");
+}
+
+// Writes a <time> element's text in the current mode, with the exact time on hover.
+function showTime(el) {
+  const iso = el.dateTime;
+  el.textContent = timeMode === "utc" ? iso : timeMode === "ago" ? ago(iso) : localTime(iso);
+  el.title = timeMode === "utc" ? localTime(iso) : timeMode === "ago" ? localTime(iso) + " · " + iso : iso;
+}
 // Rejected Bluetooth writes may not come from the app, so "Bluetooth", not "App".
 const sourceLabel = (a) => (a.source === "ble" ? "Bluetooth" : "Web" + (a.client ? " · " + a.client : ""));
 const reasonLabels = {
@@ -139,8 +172,7 @@ function fillList(id, title, items, limit, label) {
     const li = document.createElement("li");
     const when = document.createElement("time");
     when.dateTime = item.time;
-    when.textContent = utc ? item.time : localTime(item.time);
-    when.title = utc ? localTime(item.time) : item.time; // The other form, on hover.
+    showTime(when);
     const what = document.createElement("span");
     what.className = "what";
     what.textContent = label(item);
@@ -160,21 +192,21 @@ function renderHistory(text) {
   fillList("rejected", "Rejected or failed", h.rejected, h.rejectedLimit, rejectedLabel);
 }
 
-function showUTC(on) {
-  utc = on;
-  try { localStorage.setItem("times", on ? "utc" : "local"); } catch (_) { /* storage blocked */ }
-  $("tz-local").setAttribute("aria-pressed", String(!on));
-  $("tz-utc").setAttribute("aria-pressed", String(on));
-  const text = lastHistory;
-  lastHistory = "";
-  if (text) renderHistory(text);
+function showTimes(mode) {
+  timeMode = mode;
+  try { localStorage.setItem("times", mode); } catch (_) { /* storage blocked */ }
+  for (const m of timeModes) $("tz-" + m).setAttribute("aria-pressed", String(m === mode));
+  document.querySelectorAll(".history time").forEach(showTime);
 }
 
 async function refresh() {
   try {
     const [s, h] = await Promise.all([fetch("/api/state"), fetch("/api/history")]);
     if (s.ok) render(await s.json());
-    if (h.ok) renderHistory(await h.text());
+    if (h.ok) {
+      trackServerClock(h);
+      renderHistory(await h.text());
+    }
   } catch (_) { /* server unreachable; keep last state */ }
 }
 
@@ -198,9 +230,8 @@ async function post(url, body, okText) {
   }
 }
 
-$("tz-local").onclick = () => showUTC(false);
-$("tz-utc").onclick = () => showUTC(true);
-showUTC(utc);
+for (const m of timeModes) $("tz-" + m).onclick = () => showTimes(m);
+showTimes(timeMode);
 $("pulse").onclick = () => post("/api/garage/pulse", null, "Garage pulsed");
 $("on").onclick = () => post("/api/relay", { on: true }, "Relay on");
 $("off").onclick = () => post("/api/relay", { on: false }, "Relay off");
@@ -214,6 +245,9 @@ fetch("/api/pairing").then((r) => r.json()).then((p) => {
 });
 refresh();
 setInterval(refresh, 2000);
+setInterval(() => {
+  if (timeMode === "ago") document.querySelectorAll(".history time").forEach(showTime);
+}, 1000);
 </script>
 </body>
 </html>
