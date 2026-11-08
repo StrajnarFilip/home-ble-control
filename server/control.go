@@ -26,9 +26,12 @@ type Controller struct {
 	garageBusy bool
 	closed     bool
 	watchers   map[chan struct{}]struct{}
+	history    *History
 }
 
-func NewController(l Lines) *Controller { return &Controller{lines: l} }
+// NewController records every garage pulse request in h: those that start as
+// valid, those refused as busy or failed at the GPIO as rejected.
+func NewController(l Lines, h *History) *Controller { return &Controller{lines: l, history: h} }
 
 type State struct {
 	Relay      bool `json:"relay"`
@@ -69,20 +72,27 @@ func (c *Controller) changedLocked() {
 }
 
 // PulseGarage energizes the garage relay for garagePulse, then releases it.
-func (c *Controller) PulseGarage() error {
+// Valid and rejected pulses go to the history; source and client say where the
+// request came from (see GarageAction).
+func (c *Controller) PulseGarage(source, client string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
 		return errors.New("controller closed")
 	}
 	if c.garageBusy {
+		c.history.AddRejected(reasonBusy, source, client)
+		log.Printf("garage: pulse from %s refused: %v", source, errBusy)
 		return errBusy
 	}
 	if err := c.lines.SetGarage(true); err != nil {
 		_ = c.lines.SetGarage(false)
+		c.history.AddRejected(reasonGPIO, source, client)
+		log.Printf("garage: pulse from %s failed: %v", source, err)
 		return err
 	}
 	c.garageBusy = true
+	c.history.AddValid(source, client)
 	c.changedLocked()
 	log.Printf("garage: pulse start")
 	time.AfterFunc(garagePulse, c.endPulse)

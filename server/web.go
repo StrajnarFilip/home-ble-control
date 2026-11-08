@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 
@@ -24,9 +25,10 @@ type Pairing struct {
 }
 
 type webServer struct {
-	ctrl *Controller
-	key  []byte
-	pins Pins
+	ctrl    *Controller
+	history *History
+	key     []byte
+	pins    Pins
 
 	mu      sync.Mutex
 	bleAddr string
@@ -58,7 +60,7 @@ func (w *webServer) routes() http.Handler {
 		writeJSON(rw, http.StatusOK, w.pins)
 	})
 	mux.HandleFunc("POST /api/garage/pulse", func(rw http.ResponseWriter, r *http.Request) {
-		if err := w.ctrl.PulseGarage(); err != nil {
+		if err := w.ctrl.PulseGarage(sourceWeb, clientIP(r)); err != nil {
 			status := http.StatusInternalServerError
 			if errors.Is(err, errBusy) {
 				status = http.StatusConflict
@@ -67,6 +69,9 @@ func (w *webServer) routes() http.Handler {
 			return
 		}
 		writeJSON(rw, http.StatusOK, map[string]bool{"ok": true})
+	})
+	mux.HandleFunc("GET /api/history", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, w.history.Snapshot())
 	})
 	mux.HandleFunc("POST /api/relay", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -97,6 +102,15 @@ func (w *webServer) routes() http.Handler {
 		rw.Write(png)
 	})
 	return mux
+}
+
+// clientIP is the address the request came from, without the port.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func writeJSON(rw http.ResponseWriter, status int, v any) {

@@ -36,6 +36,20 @@
   code { font-size: 13px; overflow-wrap: anywhere; }
   #key { user-select: all; }
   details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .head h2 { margin: 0; }
+  h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+  .head + h3 { margin-top: 0; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+  .seg button { width: auto; padding: 4px 12px; border-radius: 0; font-size: 13px;
+                background: transparent; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .history { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  .history li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0;
+                border-top: 1px solid var(--line); }
+  .history li:first-child { border-top: 0; padding-top: 0; }
+  .history time { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .history .what { color: var(--muted); text-align: right; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -63,6 +77,22 @@
   <p id="msg" role="status"></p>
 
   <section>
+    <div class="head">
+      <h2>Garage history</h2>
+      <div class="seg" role="group" aria-label="Show times in">
+        <button type="button" id="tz-local" aria-pressed="true">Local</button>
+        <button type="button" id="tz-utc" aria-pressed="false">UTC</button>
+      </div>
+    </div>
+    <h3 id="valid-title">Pulses</h3>
+    <ol class="history" id="valid"></ol>
+    <p class="hint" id="valid-empty"></p>
+    <h3 id="rejected-title">Rejected or failed</h3>
+    <ol class="history" id="rejected"></ol>
+    <p class="hint" id="rejected-empty"></p>
+  </section>
+
+  <section>
     <h2>Pair Android app</h2>
     <img class="qr" src="/api/qr.png" alt="Pairing QR code" width="280" height="280">
     <p class="hint">Open the app and tap <b>Scan pairing QR</b>. The code contains the secret key, so keep this page private.</p>
@@ -84,10 +114,67 @@ function render(s) {
   $("gstate").textContent = s.garageBusy ? "Pulsing…" : "Idle";
 }
 
+// History times arrive in UTC (e.g. 2026-11-08T13:03:12Z). Local mode converts
+// them to this browser's time zone; UTC mode shows them exactly as received.
+let utc = false;
+try { utc = localStorage.getItem("times") === "utc"; } catch (_) { /* storage blocked */ }
+
+const localTime = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "long" });
+// Rejected Bluetooth writes may not come from the app, so "Bluetooth", not "App".
+const sourceLabel = (a) => (a.source === "ble" ? "Bluetooth" : "Web" + (a.client ? " · " + a.client : ""));
+const reasonLabels = {
+  "bad-tag": "Wrong key or tampered",
+  "expired": "Challenge expired",
+  "no-challenge": "No challenge read",
+  "bad-length": "Malformed",
+  "unknown-command": "Unknown command",
+  "busy": "Already pulsing",
+  "gpio-error": "GPIO error",
+};
+const rejectedLabel = (r) => (reasonLabels[r.reason] || r.reason) + " · " + sourceLabel(r);
+
+function fillList(id, title, items, limit, label) {
+  $(id + "-title").textContent = limit > 0 ? `${title} (last ${limit})` : title;
+  $(id).replaceChildren(...items.map((item) => {
+    const li = document.createElement("li");
+    const when = document.createElement("time");
+    when.dateTime = item.time;
+    when.textContent = utc ? item.time : localTime(item.time);
+    when.title = utc ? localTime(item.time) : item.time; // The other form, on hover.
+    const what = document.createElement("span");
+    what.className = "what";
+    what.textContent = label(item);
+    li.append(when, what);
+    return li;
+  }));
+  $(id + "-empty").textContent = limit > 0 ? "None since the server started." : "Not recorded (turned off on the server).";
+  $(id + "-empty").hidden = items.length > 0;
+}
+
+let lastHistory = "";
+function renderHistory(text) {
+  if (text === lastHistory) return; // Unchanged: don't rebuild the lists every poll.
+  lastHistory = text;
+  const h = JSON.parse(text);
+  fillList("valid", "Pulses", h.valid, h.validLimit, sourceLabel);
+  fillList("rejected", "Rejected or failed", h.rejected, h.rejectedLimit, rejectedLabel);
+}
+
+function showUTC(on) {
+  utc = on;
+  try { localStorage.setItem("times", on ? "utc" : "local"); } catch (_) { /* storage blocked */ }
+  $("tz-local").setAttribute("aria-pressed", String(!on));
+  $("tz-utc").setAttribute("aria-pressed", String(on));
+  const text = lastHistory;
+  lastHistory = "";
+  if (text) renderHistory(text);
+}
+
 async function refresh() {
   try {
-    const r = await fetch("/api/state");
-    if (r.ok) render(await r.json());
+    const [s, h] = await Promise.all([fetch("/api/state"), fetch("/api/history")]);
+    if (s.ok) render(await s.json());
+    if (h.ok) renderHistory(await h.text());
   } catch (_) { /* server unreachable; keep last state */ }
 }
 
@@ -111,6 +198,9 @@ async function post(url, body, okText) {
   }
 }
 
+$("tz-local").onclick = () => showUTC(false);
+$("tz-utc").onclick = () => showUTC(true);
+showUTC(utc);
 $("pulse").onclick = () => post("/api/garage/pulse", null, "Garage pulsed");
 $("on").onclick = () => post("/api/relay", { on: true }, "Relay on");
 $("off").onclick = () => post("/api/relay", { on: false }, "Relay off");

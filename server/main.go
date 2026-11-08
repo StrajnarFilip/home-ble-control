@@ -2,7 +2,9 @@
 // a second relay (on/off, GPIO27 by default) on a Raspberry Pi, via a web UI /
 // REST API and via authenticated BLE for the Android app. It is configured with
 // the AES key and, optionally, the $GARAGE_GPIO and $RELAY_GPIO pin numbers and
-// the $GPIO_ACTIVE_LOW relay polarity (active-low by default).
+// the $GPIO_ACTIVE_LOW relay polarity (active-low by default). Until it
+// restarts, it remembers the last $VALID_HISTORY garage pulses and the last
+// $REJECTED_HISTORY rejected or failed ones (20 each by default).
 package main
 
 import (
@@ -57,13 +59,20 @@ func main() {
 			log.Fatalf("gpio: %v", err)
 		}
 	}
-	ctrl := NewController(lines)
+	validSize, rejectedSize, err := loadHistorySizes()
+	if err != nil {
+		log.Fatalf("history: %v", err)
+	}
+	log.Printf("history: keeping the last %d garage pulses and %d rejected or failed ones in memory", validSize, rejectedSize)
+	history := NewHistory(validSize, rejectedSize)
+
+	ctrl := NewController(lines, history)
 	defer ctrl.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	web := &webServer{ctrl: ctrl, key: key, pins: pins}
+	web := &webServer{ctrl: ctrl, history: history, key: key, pins: pins}
 
 	// BLE setup can block for a while if the adapter is busy, so do it in the
 	// background; the web UI works regardless.
@@ -72,7 +81,7 @@ func main() {
 		bleDone <- nil
 	} else {
 		go func() {
-			s, addr, err := startBLE(ctx, auth, ctrl)
+			s, addr, err := startBLE(ctx, auth, ctrl, history)
 			if err != nil {
 				log.Printf("ble: disabled: %v", err)
 			} else {

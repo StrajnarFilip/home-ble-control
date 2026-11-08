@@ -38,14 +38,15 @@ type bleServer struct {
 	dev     *linux.Device
 	auth    *Authenticator
 	ctrl    *Controller
+	history *History // Writes that fail authentication go here.
 	watched sync.Map // ble.Conn -> struct{}; disconnect watchers started
 }
 
 // startBLE takes exclusive control of the first HCI adapter through the kernel's
 // HCI user channel (no BlueZ needed), registers the GATT service and starts
 // advertising. It returns the adapter address.
-func startBLE(ctx context.Context, auth *Authenticator, ctrl *Controller) (*bleServer, string, error) {
-	s := &bleServer{auth: auth, ctrl: ctrl}
+func startBLE(ctx context.Context, auth *Authenticator, ctrl *Controller, h *History) (*bleServer, string, error) {
+	s := &bleServer{auth: auth, ctrl: ctrl, history: h}
 	// The controller stops advertising when a phone connects. go-ble would leave it off
 	// until that phone disconnects, hiding the Pi from every other phone, so advertising
 	// is managed here instead and switched back on after every connect and disconnect.
@@ -199,6 +200,7 @@ func (s *bleServer) writeCommand(req ble.Request, rsp ble.ResponseWriter) {
 	cmd, arg, err := s.auth.Verify(c, req.Data())
 	if err != nil {
 		log.Printf("ble: rejected command from %s: %v", c.RemoteAddr(), err)
+		s.history.AddRejected(authRejectReason(err), sourceBLE, "")
 		switch {
 		case errors.Is(err, errBadLength):
 			rsp.SetStatus(ble.ErrInvalAttrValueLen)
@@ -211,7 +213,7 @@ func (s *bleServer) writeCommand(req ble.Request, rsp ble.ResponseWriter) {
 	}
 	switch cmd {
 	case cmdPulseGarage:
-		err = s.ctrl.PulseGarage()
+		err = s.ctrl.PulseGarage(sourceBLE, "")
 	case cmdSetRelay:
 		err = s.ctrl.SetRelay(arg == 1)
 	}

@@ -58,7 +58,8 @@ func (r *recordingLines) Close() error { return nil }
 func newTestBLE(t *testing.T) (*bleServer, *recordingLines) {
 	auth, _ := newTestAuth(t)
 	lines := &recordingLines{}
-	return &bleServer{auth: auth, ctrl: NewController(lines)}, lines
+	h := NewHistory(defaultHistorySize, defaultHistorySize)
+	return &bleServer{auth: auth, ctrl: NewController(lines, h), history: h}, lines
 }
 
 func gattRead(s *bleServer, h func(ble.Request, ble.ResponseWriter), c ble.Conn) ([]byte, ble.ATTError) {
@@ -182,7 +183,7 @@ func TestBLEStateNotifications(t *testing.T) {
 		t.Fatal(err)
 	}
 	next([]byte{1, 0})
-	if err := s.ctrl.PulseGarage(); err != nil {
+	if err := s.ctrl.PulseGarage(sourceBLE, ""); err != nil {
 		t.Fatal(err)
 	}
 	next([]byte{1, 1})

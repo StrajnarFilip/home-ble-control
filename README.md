@@ -161,6 +161,33 @@ If they don't, use one of these:
   gpio=17,27=op,dh,pu
   ```
 
+### Garage history
+
+The server keeps two lists in memory. The web UI shows them, and `GET /api/history` returns them:
+
+- **Pulses:** the last 20 garage pulses that actually energized the relay.
+- **Rejected or failed:** the last 20 garage pulse requests that didn't pulse, with the reason:
+  - a pulse refused because one was already running, for example a double tap;
+  - a pulse that hit a GPIO error;
+  - a Bluetooth command write that failed authentication or validation. These are recorded whatever command they claim to be, because until the tag checks out nothing in the write can be trusted. They shouldn't happen in normal use: the app reads a fresh challenge right before every command and never retries a rejected write.
+
+Each entry says whether it came over Bluetooth or from the web UI / REST API, plus the client's IP for the latter. Relay on/off changes aren't recorded. The lists are separate, so a flood of rejected writes can't push real pulses out. Times are stored in UTC, to the second. The web UI shows them in your browser's time zone, and its **UTC** switch shows them exactly as the server sent them.
+
+Each list has its own size, set the same way as the [pins](#gpio-pins). `0` turns a list off, and anything that isn't a whole number of 0 or more stops the server from starting.
+
+| Env var | List | Default |
+|---|---|---|
+| `VALID_HISTORY` | pulses | `20` |
+| `REJECTED_HISTORY` | rejected or failed | `20` |
+
+```sh
+sudo VALID_HISTORY=100 REJECTED_HISTORY=50 ./garage-ctl
+```
+
+- The history is kept in memory only, so a restart or update clears it. For anything older, check the service log, which goes back as far as journald keeps it: `journalctl -u garage-ctl | grep -E 'garage:|ble: rejected'`.
+- Anyone who can open the web UI can read the history. The app can't; it isn't exposed over Bluetooth.
+- A Pi 4 or earlier has no clock that keeps time while it's off, and a Pi 5 only has one with a battery fitted. Until the Pi syncs its clock over the network after booting, recorded times can be wrong.
+
 ### Raspberry Pi prerequisites (Ubuntu or Raspberry Pi OS)
 
 1. **Check that Bluetooth exists:** `ls /sys/class/bluetooth` should list `hci0`.
@@ -212,6 +239,7 @@ The web UI and REST API are **unauthenticated**: anyone who can reach the port c
 | GET | `/api/pins` | | `{"garage":17,"relay":27}` |
 | POST | `/api/garage/pulse` | | `{"ok":true}`, or `409` if a pulse is already running |
 | POST | `/api/relay` | `{"on":true}` | `{"relay":true}` |
+| GET | `/api/history` | | `{"validLimit":20,"valid":[…],"rejectedLimit":20,"rejected":[…]}`, see below |
 | GET | `/api/pairing` | | `{"v":1,"key":"…","addr":"B8:27:EB:…","name":"Garage"}` |
 | GET | `/api/qr.png` | | the pairing JSON as a QR code |
 
@@ -219,6 +247,32 @@ The web UI and REST API are **unauthenticated**: anyone who can reach the port c
 curl -X POST http://pi:8080/api/garage/pulse
 curl -X POST http://pi:8080/api/relay -d '{"on":true}'
 ```
+
+`/api/history` lists each kind newest first, with times in UTC. A `*Limit` of `0` means that list is turned off.
+
+```json
+{
+  "validLimit": 20,
+  "valid": [
+    {"time": "2026-11-08T13:03:12Z", "source": "web", "client": "192.168.1.20"},
+    {"time": "2026-11-08T07:41:55Z", "source": "ble"}
+  ],
+  "rejectedLimit": 20,
+  "rejected": [
+    {"time": "2026-11-08T13:03:13Z", "reason": "busy", "source": "web", "client": "192.168.1.20"},
+    {"time": "2026-11-08T02:17:09Z", "reason": "bad-tag", "source": "ble"}
+  ]
+}
+```
+
+`source` is `ble` or `web`. `reason` is one of:
+
+- `busy`: a pulse was already running.
+- `gpio-error`: the relay couldn't be switched.
+- `bad-tag`: wrong key or tampered (Bluetooth only, as are the rest).
+- `expired`: challenge older than 30 s.
+- `no-challenge`: none read on that connection.
+- `bad-length`, `unknown-command`: malformed write.
 
 ## Android app (`android/`)
 
